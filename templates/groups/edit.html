@@ -1,0 +1,127 @@
+{% extends 'base.html' %}
+{% block title %}Tahrirlash: {{ group.name }} — EduFlow{% endblock %}
+{% block nav_groups %}active{% endblock %}
+
+{% block content %}
+<div style="margin-bottom:16px">
+  <a href="{% url 'group-detail' group.pk %}" style="display:inline-flex;align-items:center;gap:4px;font-size:13px;color:#6b7280">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+    Guruhga qaytish
+  </a>
+</div>
+
+<div class="page-head">
+  <div>
+    <div class="page-title">Guruhni tahrirlash</div>
+    <div class="page-sub">{{ group.name }}</div>
+  </div>
+</div>
+
+<div class="card card-pad" style="max-width:720px">
+  <form method="post" action="{% url 'group-edit' group.pk %}">
+    {% csrf_token %}
+    <div class="form-row">
+      <div class="form-group"><label>Guruh nomi *</label>
+        <input name="name" value="{{ group.name }}" placeholder="masalan: Matematik 1" required>
+      </div>
+      <div class="form-group"><label>Fan/Kurs</label>
+        <select name="course" id="group-edit-course">
+          <option value="">— Tanlang —</option>
+          {% for c in course_options %}
+          <option value="{{ c.value }}" {% if c.value == current_course %}selected{% endif %}>{{ c.label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>O'qituvchi</label>
+        <select name="teacher" id="group-edit-teacher">
+          <option value="">— Tanlang —</option>
+          {% for t in teachers %}
+          <option value="{{ t.pk }}" data-subject="{{ t.subject|default:'' }}" {% if group.teacher_id == t.pk %}selected{% endif %}>{{ t }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group"><label>Xona</label>
+        <select name="room">
+          <option value="">— Tanlang —</option>
+          {% for r in rooms %}
+          <option value="{{ r.pk }}" {% if group.room_id == r.pk %}selected{% endif %}>{{ r.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Dars kunlari</label>
+        <select name="days">
+          <option value="odd" {% if group.days == 'odd' %}selected{% endif %}>Toq kunlar (Dush, Chor, Jum)</option>
+          <option value="even" {% if group.days == 'even' %}selected{% endif %}>Juft kunlar (Sesh, Pay, Shan)</option>
+          <option value="daily" {% if group.days == 'daily' %}selected{% endif %}>Har kuni</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Dars boshlanish vaqti</label>
+        <input type="time" name="start_time" value="{{ group.start_time|time:'H:i' }}">
+      </div>
+      <div class="form-group"><label>Dars tugash vaqti</label>
+        <input type="time" name="end_time" value="{{ group.end_time|time:'H:i' }}">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Boshlanish sanasi *</label>
+        <input type="date" name="start_date" value="{{ group.start_date|date:'Y-m-d' }}" required>
+      </div>
+      <div class="form-group"><label>Tugash sanasi *</label>
+        <input type="date" name="end_date" value="{{ group.end_date|date:'Y-m-d' }}" required>
+      </div>
+    </div>
+    <div class="form-group"><label>Oylik to'lov (so'm)</label>
+      <input type="number" name="price" value="{{ group.price|floatformat:0 }}">
+    </div>
+    <div style="display:flex;gap:10px;margin-top:20px;flex-wrap:wrap">
+      <a href="{% url 'group-detail' group.pk %}" class="btn btn-outline">Bekor qilish</a>
+      <button type="submit" class="btn btn-primary">Saqlash</button>
+    </div>
+  </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  var courseEl = document.getElementById('group-edit-course');
+  var teacherEl = document.getElementById('group-edit-teacher');
+  if (!courseEl || !teacherEl) return;
+
+  function normalize(v) {
+    return (v || '').toLowerCase().trim().replace(/\s+/g, ' ');
+  }
+
+  function selectedCourseKey() {
+    var raw = courseEl.value || '';
+    if (!raw) return '';
+    if (raw.indexOf('subject:') === 0) return normalize(raw.slice(8));
+    var opt = courseEl.options[courseEl.selectedIndex];
+    return normalize(opt ? opt.textContent : '');
+  }
+
+  function filterTeachers() {
+    var key = selectedCourseKey();
+    Array.from(teacherEl.options).forEach(function (opt, idx) {
+      if (idx === 0) return;
+      var teacherSubject = normalize(opt.getAttribute('data-subject') || '');
+      var visible = !key || !teacherSubject || teacherSubject === key;
+      opt.hidden = !visible;
+    });
+    if (teacherEl.value) {
+      var selected = teacherEl.options[teacherEl.selectedIndex];
+      if (selected && selected.hidden) teacherEl.value = '';
+    }
+  }
+
+  courseEl.addEventListener('change', filterTeachers);
+  filterTeachers();
+});
+</script>
+{% endblock %}

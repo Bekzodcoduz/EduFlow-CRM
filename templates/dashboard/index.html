@@ -1,0 +1,147 @@
+{% extends 'base.html' %}
+{% block title %}Dashboard — EduFlow{% endblock %}
+{% block nav_dash %}active{% endblock %}
+{% block bn_dash %}active{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <div class="page-title">Akademiya sharhi</div>
+    <div class="page-sub">Xayrli tong, {{ user.first_name|default:user.username }}! Bugungi kungi holat.</div>
+  </div>
+  {% if user.is_admin %}
+  <div style="display:flex;gap:8px">
+    <a href="{% url 'students' %}" class="btn btn-primary">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Yangi ro'yxatga olish
+    </a>
+  </div>
+  {% endif %}
+</div>
+
+<!-- STAT CARDS -->
+<div class="stat-grid">
+  <div class="stat-card">
+    <div class="sc-icon" style="background:#eef2ff"><svg viewBox="0 0 24 24" fill="none" stroke="#4338ca" stroke-width="2"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg></div>
+    <div class="sc-label">Jami talabalar</div>
+    <div class="sc-value">{{ active_students }}</div>
+    <div class="sc-trend trend-ne">Joriy holat</div>
+  </div>
+  <div class="stat-card">
+    <div class="sc-icon" style="background:#ecfdf5"><svg viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 3H8a2 2 0 0 0-2 2v2h12V5a2 2 0 0 0-2-2z"/></svg></div>
+    <div class="sc-label">Faol guruhlar</div>
+    <div class="sc-value">{{ active_groups }}</div>
+    <div class="sc-trend trend-ne">Joriy holat</div>
+  </div>
+  {% if user.is_admin %}
+  <div class="stat-card">
+    <div class="sc-icon" style="background:#fef2f2"><svg viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div>
+    <div class="sc-label">{{ status_month_label }} to'lanmagan</div>
+    <div class="sc-value">{{ debtors_count }}</div>
+    <div class="sc-trend {% if debtors_count > 0 %}trend-dn{% else %}trend-up{% endif %}">
+      {% if debtors_count > 0 %}{{ debtors_count }} ta hali to'lamagan{% else %}Hamma to'lagan{% endif %}
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="sc-icon" style="background:#ecfdf5"><svg viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
+    <div class="sc-label">Jami tushum</div>
+    <div class="sc-value" style="font-size:18px">{{ total_income|floatformat:0 }} so'm</div>
+    <div class="sc-trend trend-ne">Joriy holat</div>
+  </div>
+  {% endif %}
+</div>
+
+<div class="dash-grid">
+  {% if user.is_admin %}
+  <!-- Oylik grafik -->
+  <div class="chart-card">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px">
+      <div>
+        <div class="chart-title">Oylik tushum</div>
+        <div class="chart-sub">Barcha akademik bo'limlar bo'yicha oylik tushum oqimi</div>
+      </div>
+      <div style="display:flex;gap:6px" id="dash-chart-mode">
+        <button type="button" class="btn btn-primary btn-sm" id="dash-btn-monthly" data-mode="monthly">Oylik</button>
+      </div>
+    </div>
+    <div class="bar-wrap" id="dash-chart"></div>
+    <div class="bar-labels-row" id="dash-labels"></div>
+  </div>
+  {% endif %}
+
+  <!-- Right panel -->
+  <div style="display:flex;flex-direction:column;gap:12px">
+    <div class="chart-card" style="padding:16px">
+      <div style="font-size:11px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Tezkor amallar</div>
+      <div style="display:flex;flex-direction:column;gap:7px">
+        {% if user.is_admin %}
+        <a href="{% url 'students' %}" class="qa-item" style="text-decoration:none">
+          <div class="qa-icon" style="background:#eef2ff"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4338ca" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></div>
+          <div><div class="qa-name">Talaba qo'shish</div><div class="qa-desc">Yangi ro'yxatdan o'tish</div></div>
+        </a>
+        {% endif %}
+        <a href="{% url 'groups' %}" class="qa-item" style="text-decoration:none">
+          <div class="qa-icon" style="background:#ecfdf5"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></div>
+          <div><div class="qa-name">{% if user.is_admin %}Guruh yaratish{% else %}Mening guruhlarim{% endif %}</div><div class="qa-desc">{% if user.is_admin %}Guruhni rejalashtirish{% else %}Biriktirilgan guruhlarni ko'rish{% endif %}</div></div>
+        </a>
+        {% if user.is_admin %}
+        <a href="{% url 'finance' %}" class="qa-item" style="text-decoration:none">
+          <div class="qa-icon" style="background:#fef3c7"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
+          <div><div class="qa-name">Hisob-faktura</div><div class="qa-desc">To'lovni amalga oshirish</div></div>
+        </a>
+        <a href="{% url 'teachers' %}" class="qa-item" style="text-decoration:none">
+          <div class="qa-icon" style="background:#fef2f2"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg></div>
+          <div><div class="qa-name">O'qituvchi qo'shish</div><div class="qa-desc">Yangi xodim qo'shish</div></div>
+        </a>
+        {% else %}
+        <a href="{% url 'attendance' %}" class="qa-item" style="text-decoration:none">
+          <div class="qa-icon" style="background:#eef2ff"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4338ca" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div>
+          <div><div class="qa-name">Davomat</div><div class="qa-desc">Bugungi davomatni kiritish</div></div>
+        </a>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="chart-card" style="padding:16px">
+      <div style="font-size:11px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Oxirgi faoliyat</div>
+      <div style="display:flex;flex-direction:column;gap:9px">
+        {% for p in recent_payments %}
+        <div class="act-item">
+          <div class="act-dot"></div>
+          <div>
+            <div class="act-name">To'lov qabul qilindi</div>
+            <div class="act-sub">{{ p.student.full_name }} — {{ p.amount|floatformat:0 }} so'm</div>
+            <div class="act-time">{{ p.created_at|timesince }} oldin</div>
+          </div>
+        </div>
+        {% empty %}
+        <div class="act-item">
+          <div class="act-dot"></div>
+          <div><div class="act-name">Tizim ishga tushdi</div><div class="act-sub">Xush kelibsiz!</div></div>
+        </div>
+        {% endfor %}
+      </div>
+      <div style="margin-top:10px;font-size:11px;font-weight:700;color:#4338ca;cursor:pointer;letter-spacing:.5px;text-transform:uppercase">
+        <a href="{% url 'finance' %}" style="color:#4338ca">Barcha qaydlarni ko'rish</a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const monthlyChartData = {{ monthly_chart_json|safe }};
+
+function renderDashIncome() {
+  if (!document.getElementById('dash-chart') || !document.getElementById('dash-labels')) return;
+  renderBarChart('dash-chart', 'dash-labels', monthlyChartData, 'v', 'l', '#4338ca');
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  renderDashIncome();
+  var bm = document.getElementById('dash-btn-monthly');
+  if (bm) bm.addEventListener('click', function () { renderDashIncome(); });
+});
+</script>
+{% endblock %}

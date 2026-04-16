@@ -1,0 +1,189 @@
+{% extends 'base.html' %}
+{% block title %}Talabalar — EduFlow{% endblock %}
+{% block nav_students %}active{% endblock %}
+{% block bn_students %}active{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <div class="page-title">Talabalarni boshqarish</div>
+    <div class="page-sub">2024-o'quv yili uchun ro'yxatga olish, holat va yozuvlarni boshqarish.</div>
+  </div>
+  {% if user.is_admin %}
+  <button class="btn btn-primary" onclick="openModal('modal-student')">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    Yangi talaba qo'shish
+  </button>
+  {% endif %}
+</div>
+
+<div class="table-card">
+  <div class="table-toolbar">
+    <form method="get" style="display:contents">
+      <div class="table-search">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input name="q" value="{{ q }}" placeholder="Talabalarni qidirish: ism, email yoki ID bo'yicha..." onchange="this.form.submit()">
+      </div>
+      <select name="group" class="filter-btn" onchange="this.form.submit()" style="appearance:none;padding:7px 13px">
+        <option value="">Guruh bo'yicha filterlash ▾</option>
+        {% for g in groups %}<option value="{{ g.pk }}" {% if gid == g.pk|stringformat:"s" %}selected{% endif %}>{{ g.name }}</option>{% endfor %}
+      </select>
+      <select name="status" class="filter-btn" onchange="this.form.submit()" style="appearance:none;padding:7px 13px">
+        <option value="">To'lov holati ▾</option>
+        <option value="debtor" {% if status == 'debtor' %}selected{% endif %}>Bu oy to'lanmagan</option>
+        <option value="paid" {% if status == 'paid' %}selected{% endif %}>Bu oy to'lagan</option>
+      </select>
+    </form>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Rasm</th>
+          <th>To'liq ism</th>
+          <th>Telefon raqami</th>
+          <th>Kurs/Guruh</th>
+          <th>Holat</th>
+          <th>Amallar</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for s in students %}
+        <tr>
+          <td>
+            <div class="avatar av-36" style="background:#e0e7ff;color:#3730a3">{{ s.initials }}</div>
+          </td>
+          <td>
+            <a href="{% url 'student-detail' s.pk %}" class="td-name" style="color:#4338ca;text-decoration:none">{{ s.full_name }}</a>
+            <div class="td-sub" title="{{ s.full_address }}">{{ s.short_address }}</div>
+          </td>
+          <td class="td-mono">{{ s.phone }}</td>
+          <td>
+            {% if s.group %}
+            <span class="course-chip">{{ s.group.name }}</span>
+            {% else %}—{% endif %}
+          </td>
+          <td>
+            <span class="badge {% if s.paid_this_month %}badge-green{% else %}badge-red{% endif %}">
+              <span class="badge-dot"></span>
+              {% if s.paid_this_month %}TO'LANGAN{% else %}TO'LANMAGAN{% endif %}
+            </span>
+          </td>
+          <td>
+            <form method="post" action="{% url 'student-delete' s.pk %}" style="display:inline" onsubmit="return confirm('O\'chirilsinmi?')">
+              {% csrf_token %}
+              <button type="submit" class="btn-icon">🗑</button>
+            </form>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="6" style="text-align:center;padding:40px;color:#9ca3af">Talabalar topilmadi</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="pagination">
+    <div class="pag-info">{{ students.count }} tadan 1–{{ students.count }} gacha talabalar ko'rsatilmoqda</div>
+    <div class="pag-btns">
+      <button class="pag-btn">‹</button>
+      <button class="pag-btn active">1</button>
+      <button class="pag-btn">2</button>
+      <button class="pag-btn">3</button>
+      <button class="pag-btn">›</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Talaba qo'shish -->
+{% if user.is_admin %}
+<div class="modal-backdrop" id="modal-student">
+  <div class="modal-box" style="max-width:600px">
+    <div class="modal-head">
+      <div class="modal-title">Yangi talaba ro'yxatga olish</div>
+      <button class="modal-close" onclick="closeModal('modal-student')">✕</button>
+    </div>
+    <form method="post" action="{% url 'student-create' %}">
+      {% csrf_token %}
+      <div class="modal-body">
+
+        <div class="section-label">Shaxsiy ma'lumotlar</div>
+        <div class="form-row">
+          <div class="form-group"><label>Ism *</label><input name="first_name" placeholder="Ism" required></div>
+          <div class="form-group"><label>Familiya *</label><input name="last_name" placeholder="Familiya" required></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>Telefon raqami *</label><input name="phone" placeholder="+998 90 000 00 00" required></div>
+          <div class="form-group"><label>Tug'ilgan sana</label><input type="date" name="birth_date"></div>
+        </div>
+        <div class="form-group">
+          <label>Ota yoki ona telefoni (SMS — ixtiyoriy)</label>
+          <input name="parent_phone" placeholder="+998 90 000 00 00">
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>Jinsi</label>
+            <select name="gender">
+              <option value="">— Tanlang —</option>
+              <option value="male">Erkak</option>
+              <option value="female">Ayol</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="section-label">O'quv ma'lumotlari</div>
+        <div class="form-row">
+          <div class="form-group"><label>Fan/Kurs</label>
+            <select id="student-course-filter">
+              <option value="">— Barchasi —</option>
+              {% for c in course_filters %}<option value="{{ c.key }}">{{ c.label }}</option>{% endfor %}
+            </select>
+          </div>
+          <div class="form-group"><label>Guruh</label>
+            <select name="group" id="student-group-select">
+              <option value="">— Guruh tanlang —</option>
+              {% for g in group_options %}
+              <option value="{{ g.id }}" data-course-key="{{ g.course_key }}">{{ g.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>Qabul sanasi</label><input type="date" name="enrolled_at"></div>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button type="button" class="btn btn-outline" onclick="closeModal('modal-student')">Bekor qilish</button>
+        <button type="submit" class="btn btn-primary">Ro'yxatga olish</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  var courseSelect = document.getElementById('student-course-filter');
+  var groupSelect = document.getElementById('student-group-select');
+  if (!courseSelect || !groupSelect) return;
+
+  function filterGroups() {
+    var courseId = courseSelect.value;
+    var opts = groupSelect.querySelectorAll('option');
+    opts.forEach(function (opt, idx) {
+      if (idx === 0) return; // placeholder
+      var optCourseId = opt.getAttribute('data-course-key') || '';
+      var visible = !courseId || optCourseId === courseId;
+      opt.hidden = !visible;
+      if (!visible && opt.selected) {
+        groupSelect.value = '';
+      }
+    });
+  }
+
+  courseSelect.addEventListener('change', filterGroups);
+  filterGroups();
+});
+</script>
+{% endblock %}

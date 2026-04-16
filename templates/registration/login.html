@@ -1,0 +1,62 @@
+{% extends 'base.html' %}
+{% block auth_content %}
+<div class="login-wrap">
+
+  <!-- LEFT -->
+  <div class="login-left">
+    <div class="login-left-inner">
+      <div class="login-art">
+        <svg width="120" height="100" viewBox="0 0 120 100" fill="none" opacity=".3">
+          <rect x="8" y="28" width="104" height="64" rx="10" fill="white"/>
+          <path d="M60 8L112 36H8L60 8Z" fill="white"/>
+          <rect x="42" y="52" width="36" height="40" rx="6" fill="white" fill-opacity=".8"/>
+          <circle cx="60" cy="42" r="11" fill="white" fill-opacity=".9"/>
+        </svg>
+      </div>
+      <div class="login-title">Yangi avlod bilimdonlarini voyaga yetkazish.</div>
+      <div class="login-desc">O'quv markazingiz uchun maxsus ishlab chiqilgan boshqaruv tizimi.</div>
+    </div>
+  </div>
+
+  <!-- RIGHT -->
+  <div class="login-right">
+    <div class="login-logo">EduFlow</div>
+    <div class="login-h">Xush kelibsiz</div>
+    <div class="login-sub">O'quv markazingizga kiring</div>
+
+    {% if error %}
+    <div class="login-err">{{ error }}</div>
+    {% endif %}
+
+    <form method="post" action="{% url 'login' %}">
+      {% csrf_token %}
+      <label class="form-lbl">Login</label>
+      <input class="form-inp" name="username" placeholder="username" value="{{ request.POST.username|default:'' }}" autocomplete="username" required>
+      <label class="form-lbl">Parol</label>
+      <input class="form-inp" name="password" type="password" placeholder="••••••••" autocomplete="current-password" required>
+      <div class="login-opts">
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+          <input type="checkbox" name="remember" style="accent-color:#3730a3">
+          Meni eslab qol
+        </label>
+        <a>Parolni unutdingizmi?</a>
+      </div>
+      <button type="submit" class="login-btn">Kirish</button>
+    </form>
+
+    <button class="google-btn">
+      <svg width="16" height="16" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="#4285f4" stroke-width="1.5" fill="none"/><path d="M15.5 12H12v3h3.5c-.5 1.5-2 2.5-3.5 2.5a4 4 0 0 1 0-8 3.9 3.9 0 0 1 2.5.9l2-2A6.5 6.5 0 1 0 12 18.5c3.6 0 6.5-2.9 6.5-6.5 0-.4 0-.7-.1-1H15.5z" fill="#4285f4"/></svg>
+      Google orqali davom etish
+    </button>
+
+    <div class="login-foot">
+      Akkauntingiz yo'qmi? <a>Administrator bilan bog'laning.</a>
+    </div>
+    <div class="login-links">
+      <a>Maxfiylik siyosati</a>
+      <a>Foydalanish shartlari</a>
+      <a>Cookie sozlamalari</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

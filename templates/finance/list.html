@@ -1,0 +1,275 @@
+{% extends 'base.html' %}
+{% block title %}Moliya — EduFlow{% endblock %}
+{% block nav_finance %}active{% endblock %}
+{% block bn_finance %}active{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <div class="page-title">Moliya boshqaruvi</div>
+    <div class="page-sub">Tranzaksiyalarni boshqarish va moliyaviy monitoring.</div>
+  </div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+    <form method="get" action="{% url 'finance-export' %}" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <select name="group" class="filter-btn" data-export-group style="max-width:min(190px,100%);padding:7px 13px;cursor:pointer" title="Guruh (ixtiyoriy)">
+        <option value="">Barcha guruhlar</option>
+        {% for g in export_groups %}
+        <option value="{{ g.pk }}">{{ g.name }}</option>
+        {% endfor %}
+      </select>
+      <select name="student" class="filter-btn" data-export-student style="max-width:min(220px,100%);padding:7px 13px;cursor:pointer" title="Talaba (ixtiyoriy)">
+        <option value="">Guruh / barcha talabalar</option>
+        {% for s in students %}
+        <option value="{{ s.pk }}" data-group="{% if s.group %}{{ s.group.pk }}{% endif %}" data-course="{% if s.group.course_id %}{{ s.group.course_id }}{% endif %}">{{ s.full_name }}{% if s.group %} — {{ s.group.name }}{% endif %}</option>
+        {% endfor %}
+      </select>
+      <select name="format" class="filter-btn" style="padding:7px 13px;cursor:pointer">
+        <option value="xlsx" selected>Excel</option>
+        <option value="csv">CSV</option>
+      </select>
+      <button type="submit" class="btn btn-outline" style="display:inline-flex;align-items:center;gap:6px">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Eksport
+      </button>
+    </form>
+    <button class="btn btn-primary" onclick="openModal('modal-payment')">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      To'lov qo'shish
+    </button>
+  </div>
+</div>
+
+<!-- STAT CARDS -->
+<div class="fin-stats">
+  <div class="fin-card">
+    <div class="fin-label">
+      Jami daromad
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+    </div>
+    <div class="fin-value">{{ total_income|floatformat:0 }} so'm</div>
+    <div class="fin-bar"><div class="fin-bar-f" style="width:70%"></div></div>
+  </div>
+  <div class="fin-card">
+    <div class="fin-label">Oylik daromad</div>
+    <div class="fin-value">{{ total_income|floatformat:0 }} so'm</div>
+    <div class="fin-sub">Rejalashtirilgan: {{ total_income|floatformat:0 }} so'm</div>
+  </div>
+  <div class="fin-card danger">
+    <div class="fin-label">
+      {{ status_month_label }} to'lanmaganlar
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+    </div>
+    <div class="fin-value">{{ debtors_total }}</div>
+    <div class="fin-sub">Bu oy hali to'lamagan {{ debtors.count }} talaba</div>
+  </div>
+</div>
+
+<!-- FILTER -->
+<div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;align-items:center">
+  <form method="get" style="display:contents">
+    <input type="month" name="month" value="{{ month }}" class="filter-btn" onchange="this.form.submit()" style="padding:7px 13px;cursor:pointer">
+    <select name="tab" class="filter-btn" onchange="this.form.submit()" style="appearance:none;padding:7px 13px">
+      <option value="payments" {% if tab == 'payments' %}selected{% endif %}>To'lovlar</option>
+      <option value="debtors" {% if tab == 'debtors' %}selected{% endif %}>Bu oy to'lanmaganlar</option>
+    </select>
+  </form>
+</div>
+
+{% if tab == 'debtors' %}
+<div class="table-card">
+  <div style="padding:14px 18px;border-bottom:1px solid #e5e7eb;font-size:14px;font-weight:600">{{ status_month_label }} bo'yicha to'lanmagan talabalar</div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Talaba</th><th>Telefon</th><th>Guruh</th><th>Holat</th><th>Amal</th></tr></thead>
+      <tbody>
+        {% for s in debtors %}
+        <tr>
+          <td><div class="av-wrap"><div class="avatar av-36" style="background:#fee2e2;color:#b91c1c">{{ s.initials }}</div><div class="td-name">{{ s.full_name }}</div></div></td>
+          <td class="td-mono">{{ s.phone }}</td>
+          <td>{% if s.group %}<span class="course-chip">{{ s.group.name }}</span>{% else %}—{% endif %}</td>
+          <td style="font-weight:700;color:#ef4444">To'lanmagan</td>
+          <td><button class="btn btn-primary btn-sm" onclick="prefillStudent({{ s.pk }}, '{{ s.full_name }}')">To'lov qabul qilish</button></td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="5" style="text-align:center;padding:40px;color:#9ca3af">Barcha talabalar to'lagan!</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% else %}
+<div class="table-card">
+  <div style="padding:14px 18px;border-bottom:1px solid #e5e7eb;font-size:14px;font-weight:600">Yaqindagi tranzaksiyalar</div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Talaba ismi</th>
+          <th>Guruh</th>
+          <th>Fan</th>
+          <th>To'lov usuli</th>
+          <th>To'lov summasi</th>
+          <th>Holati</th>
+          <th>To'lov sanasi</th>
+          <th>Amallar</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in payments %}
+        <tr>
+          <td>
+            <div class="av-wrap">
+              <div class="avatar av-36" style="background:#e0e7ff;color:#3730a3">{{ p.student.initials }}</div>
+              <div class="td-name">{{ p.student.full_name }}</div>
+            </div>
+          </td>
+          <td>
+            {% if p.group %}<span class="course-chip">{{ p.group.name }}</span>{% elif p.student.group %}<span class="course-chip">{{ p.student.group.name }}</span>{% else %}—{% endif %}
+          </td>
+          <td style="font-size:13px;color:#374151">{% if p.course %}{{ p.course.name }}{% else %}—{% endif %}</td>
+          <td style="font-size:12px;color:#374151">{{ p.get_payment_method_display }}</td>
+          <td style="font-weight:600;color:#111827">{{ p.amount|floatformat:0 }} so'm</td>
+          <td>
+            <span class="badge pay-{{ p.payment_type }}">
+              <span class="badge-dot"></span>
+              {% if p.payment_type == 'income' %}TO'LANGAN
+              {% elif p.payment_type == 'discount' %}CHEGIRMA
+              {% else %}QAYTARISH{% endif %}
+            </span>
+          </td>
+          <td style="color:#6b7280;font-size:13px">{{ p.created_at|date:"d.m.Y" }}</td>
+          <td>
+            <form method="post" action="{% url 'payment-delete' p.pk %}" style="display:inline" onsubmit="return confirm('O\'chirilsinmi?')">
+              {% csrf_token %}
+              <button type="submit" class="btn-icon">🗑</button>
+            </form>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="8" style="text-align:center;padding:40px;color:#9ca3af">To'lovlar topilmadi</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="pagination">
+    <div class="pag-info">{{ payments.count }} tranzaksiyadan {{ payments.count }} tasi ko'rsatilmoqda</div>
+    <div class="pag-btns">
+      <button class="pag-btn">‹</button>
+      <button class="pag-btn active">1</button>
+      <button class="pag-btn">›</button>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<!-- MODAL -->
+<div class="modal-backdrop" id="modal-payment">
+  <div class="modal-box">
+    <div class="modal-head">
+      <div class="modal-title">To'lov qo'shish</div>
+      <button class="modal-close" onclick="closeModal('modal-payment')">✕</button>
+    </div>
+    <form method="post" action="{% url 'payment-create' %}">
+      {% csrf_token %}
+      <div class="modal-body">
+        <div class="form-row">
+          <div class="form-group"><label>Talaba *</label>
+            <select name="student" id="payment-student" required>
+              <option value="">— Tanlang —</option>
+              {% for s in students %}<option value="{{ s.pk }}" data-course="{% if s.group.course_id %}{{ s.group.course_id }}{% endif %}" data-group="{% if s.group_id %}{{ s.group_id }}{% endif %}">{{ s.full_name }}</option>{% endfor %}
+            </select>
+          </div>
+          <div class="form-group"><label>To'lov turi</label>
+            <select name="payment_type">
+              <option value="income">Kirim</option>
+              <option value="refund">Qaytarish</option>
+              <option value="discount">Chegirma</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Qaysi fan uchun</label>
+          <select name="course" id="payment-course">
+            <option value="">— Tanlang (ixtiyoriy) —</option>
+            {% for c in payment_courses %}<option value="{{ c.pk }}">{{ c.name }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Qaysi yo'nalish / guruh uchun</label>
+          <select name="group" id="payment-group">
+            <option value="">— Tanlang (ixtiyoriy) —</option>
+            {% for g in payment_groups %}
+            <option value="{{ g.pk }}" data-course="{% if g.course_id %}{{ g.course_id }}{% endif %}">
+              {{ g.name }}{% if g.course %} — {{ g.course.name }}{% endif %}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group">
+          <label>To'lov usuli</label>
+          <select name="payment_method">
+            <option value="cash">Naqd pul</option>
+            <option value="transfer">O'tkazish</option>
+            <option value="terminal">Terminal / karta</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>Summa (so'm) *</label><input type="number" name="amount" placeholder="300000" required></div>
+          <div class="form-group"><label>Izoh</label><input name="note" placeholder="To'lov uchun izoh..."></div>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button type="button" class="btn btn-outline" onclick="closeModal('modal-payment')">Bekor qilish</button>
+        <button type="submit" class="btn btn-primary">Saqlash</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function prefillStudent(id, name) {
+  const sel = document.getElementById('payment-student');
+  if (sel) {
+    sel.value = String(id);
+    sel.dispatchEvent(new Event('change'));
+  }
+  openModal('modal-payment');
+}
+const monthlyData = {{ monthly_data|safe }};
+document.addEventListener('DOMContentLoaded', function() {
+  const st = document.getElementById('payment-student');
+  const pc = document.getElementById('payment-course');
+  const pg = document.getElementById('payment-group');
+
+  function filterGroupsByCourse() {
+    if (!pc || !pg) return;
+    const selectedCourse = pc.value || '';
+    Array.from(pg.options).forEach(function(opt, idx) {
+      if (idx === 0) return;
+      const gCourse = opt.getAttribute('data-course') || '';
+      opt.hidden = !!selectedCourse && !!gCourse && gCourse !== selectedCourse;
+    });
+    if (pg.value) {
+      const selected = pg.options[pg.selectedIndex];
+      if (selected && selected.hidden) pg.value = '';
+    }
+  }
+
+  if (st && pc) {
+    st.addEventListener('change', function() {
+      const opt = this.options[this.selectedIndex];
+      const cid = (opt && opt.getAttribute('data-course')) || '';
+      const gid = (opt && opt.getAttribute('data-group')) || '';
+      pc.value = cid || '';
+      if (pg) pg.value = gid || '';
+      filterGroupsByCourse();
+    });
+  }
+  if (pc) pc.addEventListener('change', filterGroupsByCourse);
+  filterGroupsByCourse();
+});
+</script>
+{% endblock %}

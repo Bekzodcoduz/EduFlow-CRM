@@ -1,0 +1,190 @@
+{% extends 'base.html' %}
+{% block title %}Guruhlar — EduFlow{% endblock %}
+{% block nav_groups %}active{% endblock %}
+{% block bn_groups %}active{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <div class="page-title">Guruhlarni boshqarish</div>
+    <div class="page-sub">Joriy oy uchun barcha faol va nofaol o'quv guruhlari.</div>
+  </div>
+  {% if user.is_admin %}
+  <button class="btn btn-primary" onclick="openModal('modal-group')">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    Guruh yaratish
+  </button>
+  {% endif %}
+</div>
+
+<!-- STATS -->
+<div class="stat-grid stat-grid-3">
+  <div class="stat-card"><div class="sc-label">Jami guruhlar</div><div class="sc-value">{{ groups.count }}</div></div>
+  <div class="stat-card"><div class="sc-label">Faol talabalar</div><div class="sc-value">{{ total_students }}</div></div>
+  <div class="stat-card"><div class="sc-label">Nofaol guruhlar</div><div class="sc-value">{{ inactive_groups|default:0 }}</div></div>
+</div>
+
+<!-- FILTER TABS -->
+<div style="display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap;align-items:center">
+  <a href="?status=all" class="btn {% if status == 'all' or not status %}btn-primary{% else %}btn-outline{% endif %} btn-sm">Barcha guruhlar</a>
+  <a href="?status=active" class="btn {% if status == 'active' %}btn-primary{% else %}btn-outline{% endif %} btn-sm">Faol</a>
+  <a href="?status=inactive" class="btn {% if status == 'inactive' %}btn-primary{% else %}btn-outline{% endif %} btn-sm">Nofaol</a>
+  <form method="get" style="margin-left:auto">
+    <input type="hidden" name="status" value="{{ status }}">
+    <div style="position:relative">
+      <svg style="position:absolute;left:10px;top:50%;transform:translateY(-50%);width:14px;height:14px;color:#9ca3af" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input name="q" value="{{ q }}" placeholder="Guruhlarni qidirish..." style="padding:8px 12px 8px 34px;border:1px solid #e5e7eb;border-radius:20px;font-size:13px;outline:none;background:#fff;width:220px" onchange="this.form.submit()">
+    </div>
+  </form>
+</div>
+
+<!-- GROUP CARDS -->
+<div class="group-grid">
+  {% for g in groups %}
+  <div class="group-card">
+    <div class="gc-top">
+      <div class="gc-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>
+      </div>
+      <span class="badge {% if g.is_active %}badge-indigo{% else %}badge-gray{% endif %}">
+        {% if g.is_active %}FAOL{% else %}NOFAOL{% endif %}
+      </span>
+    </div>
+    <div class="gc-name">{{ g.name }}</div>
+    <div class="gc-teacher">O'qituvchi: {{ g.teacher|default:"—" }}</div>
+    <div class="gc-rows">
+      <div class="gc-row">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+        {{ g.student_count }} Talabalar
+      </div>
+      <div class="gc-row">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        Dars jadvali: {{ g.days_label }} • {{ g.start_time|time:"H:i" }}–{{ g.end_time|time:"H:i" }}
+      </div>
+      <div class="gc-row">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/></svg>
+        {{ g.room.name|default:"—" }}
+      </div>
+    </div>
+    <div class="gc-foot">
+      <a href="{% url 'group-detail' g.pk %}" class="gc-link">Batafsil ko'rish →</a>
+      <div class="gc-faces">
+        {% for s in g.students.all|slice:":4" %}
+        <div class="gc-face">{{ s.initials }}</div>
+        {% endfor %}
+        {% if g.student_count > 4 %}
+        <div class="gc-face">+{{ g.student_count|add:"-4" }}</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  {% empty %}
+  <div style="grid-column:1/-1;text-align:center;padding:60px;color:#9ca3af">Guruhlar topilmadi</div>
+  {% endfor %}
+
+  {% if user.is_admin %}
+  <div class="group-card gc-add" onclick="openModal('modal-group')" style="cursor:pointer;min-height:220px">
+    <div class="gc-add-ic">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    </div>
+    <div style="font-size:13px;font-weight:600;color:#374151;margin-bottom:4px">Yangi o'quv maydoni kerakmi?</div>
+    <div style="font-size:12px;text-align:center;padding:0 12px">Talabalarni guruhlarga tashkil qiling</div>
+    <button class="btn btn-outline btn-sm" style="margin-top:12px">Konfiguratsiyani boshlash</button>
+  </div>
+  {% endif %}
+</div>
+
+<!-- MODAL: Guruh qo'shish -->
+{% if user.is_admin %}
+<div class="modal-backdrop" id="modal-group">
+  <div class="modal-box">
+    <div class="modal-head">
+      <div class="modal-title">Yangi guruh yaratish</div>
+      <button class="modal-close" onclick="closeModal('modal-group')">✕</button>
+    </div>
+    <form method="post" action="{% url 'group-create' %}">
+      {% csrf_token %}
+      <div class="modal-body">
+        <div class="form-row">
+          <div class="form-group"><label>Guruh nomi *</label><input name="name" placeholder="masalan: Ingliz tili A1" required></div>
+          <div class="form-group"><label>Fan/Kurs</label>
+            <select name="course" id="group-create-course">
+              <option value="">— Tanlang —</option>
+              {% for c in course_options %}<option value="{{ c.value }}">{{ c.label }}</option>{% endfor %}
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>O'qituvchi</label>
+            <select name="teacher" id="group-create-teacher">
+              <option value="">— Tanlang —</option>
+              {% for t in teachers %}<option value="{{ t.pk }}" data-subject="{{ t.subject|default:'' }}">{{ t }}</option>{% endfor %}
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>Dars kunlari</label>
+            <select name="days">
+              <option value="odd">Toq kunlar (Dush, Chor, Jum)</option>
+              <option value="even">Juft kunlar (Sesh, Pay, Shan)</option>
+              <option value="daily">Har kuni</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>Dars boshlanish vaqti</label><input type="time" name="start_time" id="g-start-time" value="09:00"></div>
+          <div class="form-group"><label>Dars tugash vaqti</label><input type="time" name="end_time" id="g-end-time" value="10:30"></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>Boshlanish sanasi *</label><input type="date" name="start_date" id="g-start-date" required></div>
+        </div>
+        <div class="form-group"><label>Oylik to'lov (so'm)</label><input type="number" name="price" value="300000"></div>
+      </div>
+      <div class="modal-foot">
+        <button type="button" class="btn btn-outline" onclick="closeModal('modal-group')">Bekor qilish</button>
+        <button type="submit" class="btn btn-primary">Saqlash</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  var courseEl = document.getElementById('group-create-course');
+  var teacherEl = document.getElementById('group-create-teacher');
+  if (!courseEl || !teacherEl) return;
+
+  function normalize(v) {
+    return (v || '').toLowerCase().trim().replace(/\s+/g, ' ');
+  }
+
+  function selectedCourseKey() {
+    var raw = courseEl.value || '';
+    if (!raw) return '';
+    if (raw.indexOf('subject:') === 0) return normalize(raw.slice(8));
+    var opt = courseEl.options[courseEl.selectedIndex];
+    return normalize(opt ? opt.textContent : '');
+  }
+
+  function filterTeachers() {
+    var key = selectedCourseKey();
+    Array.from(teacherEl.options).forEach(function (opt, idx) {
+      if (idx === 0) return;
+      var teacherSubject = normalize(opt.getAttribute('data-subject') || '');
+      var visible = !key || !teacherSubject || teacherSubject === key;
+      opt.hidden = !visible;
+    });
+    if (teacherEl.value) {
+      var selected = teacherEl.options[teacherEl.selectedIndex];
+      if (selected && selected.hidden) teacherEl.value = '';
+    }
+  }
+
+  courseEl.addEventListener('change', filterTeachers);
+  filterTeachers();
+});
+</script>
+{% endblock %}

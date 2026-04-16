@@ -1,0 +1,14 @@
+<button type="button"
+  class="dav-cell {% if day.cell_kind == 'present' %}present{% elif day.cell_kind == 'absent' %}absent{% elif day.cell_kind == 'excused' %}absent excused-absent{% endif %}"
+  data-role="presence"
+  data-student="{{ student_pk }}"
+  data-date="{{ day.date_str }}"
+  data-cell-state="{{ day.cell_kind }}"
+  onclick="toggleDavPresenceBtn(this)"
+  title="Keldi va kelmadi o'rtasida almashtirish">
+  {% if day.cell_kind == 'present' %}
+  <svg viewBox="0 0 24 24" fill="none" stroke="#4338ca" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+  {% elif day.cell_kind == 'absent' or day.cell_kind == 'excused' %}
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+  {% endif %}
+</button>

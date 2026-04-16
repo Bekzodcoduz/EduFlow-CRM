@@ -1,0 +1,136 @@
+{% extends 'base.html' %}
+{% block title %}{{ group.name }} — EduFlow{% endblock %}
+{% block nav_groups %}active{% endblock %}
+
+{% block content %}
+<div style="margin-bottom:16px">
+  <a href="{% url 'groups' %}" style="display:inline-flex;align-items:center;gap:4px;font-size:13px;color:#6b7280">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+    Guruhlar
+  </a>
+</div>
+
+<div class="page-head">
+  <div>
+    <div class="page-title">{{ group.name }}</div>
+    <div class="page-sub">{{ group.course.name|default:"" }}</div>
+  </div>
+  {% if user.is_admin %}
+  <div style="display:flex;gap:8px;flex-wrap:wrap">
+    <a href="{% url 'group-edit' group.pk %}" class="btn btn-outline btn-sm">Tahrirlash</a>
+    <form method="post" action="{% url 'group-toggle' group.pk %}" style="display:inline">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-outline btn-sm">
+        {% if group.is_active %}To'xtatish{% else %}Faollashtirish{% endif %}
+      </button>
+    </form>
+    <form method="post" action="{% url 'group-delete' group.pk %}" onsubmit="return confirm('O\'chirilsinmi?')">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-danger btn-sm">O'chirish</button>
+    </form>
+  </div>
+  {% endif %}
+</div>
+
+<div style="display:grid;grid-template-columns:260px 1fr;gap:20px;align-items:start">
+
+  <!-- LEFT -->
+  <div style="display:flex;flex-direction:column;gap:14px">
+    <div class="card card-pad">
+      {% for row in rows %}
+      <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f3f4f6;font-size:13px">
+        <span style="color:#6b7280">{{ row.0 }}</span>
+        <span style="font-weight:500">{{ row.1 }}</span>
+      </div>
+      {% endfor %}
+      {% with rows=""|make_list %}
+      <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f3f4f6;font-size:13px"><span style="color:#6b7280">Kurs</span><span style="font-weight:500">{{ group.course.name|default:"—" }}</span></div>
+      <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f3f4f6;font-size:13px"><span style="color:#6b7280">O'qituvchi</span><span style="font-weight:500">{{ group.teacher|default:"—" }}</span></div>
+      <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f3f4f6;font-size:13px"><span style="color:#6b7280">Kunlar</span><span style="font-weight:500">{{ group.days_label }}</span></div>
+      <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f3f4f6;font-size:13px"><span style="color:#6b7280">Dars vaqti</span><span style="font-weight:500">{{ group.start_time|time:"H:i" }}–{{ group.end_time|time:"H:i" }}</span></div>
+      <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f3f4f6;font-size:13px"><span style="color:#6b7280">Boshlanish</span><span style="font-weight:500">{{ group.start_date }}</span></div>
+      <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f3f4f6;font-size:13px"><span style="color:#6b7280">Tugash</span><span style="font-weight:500">{{ group.end_date }}</span></div>
+      <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f3f4f6;font-size:13px"><span style="color:#6b7280">Narx</span><span style="font-weight:500">{{ group.price|floatformat:0 }} so'm</span></div>
+      <div style="padding:10px 0">
+        <span class="badge {% if group.is_active %}badge-green{% else %}badge-gray{% endif %}">
+          {% if group.is_active %}Faol{% else %}Yopilgan{% endif %}
+        </span>
+      </div>
+      {% endwith %}
+    </div>
+
+    <div class="card card-pad">
+      <div style="font-size:13px;font-weight:600;margin-bottom:12px">Talabalar — {{ students.count }} ta</div>
+      {% for s in students %}
+      <div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #f3f4f6">
+        <div class="avatar av-36" style="background:#e0e7ff;color:#3730a3;font-size:11px">{{ s.initials }}</div>
+        <div style="flex:1">
+          <div style="font-size:13px;font-weight:600">{{ s.full_name }}</div>
+          <div style="font-size:11px;color:#9ca3af;font-family:monospace">{{ s.phone }}</div>
+        </div>
+        <span style="font-size:11px;font-weight:600;padding:2px 7px;border-radius:5px;background:{% if s.balance < 0 %}#fee2e2{% else %}#dcfce7{% endif %};color:{% if s.balance < 0 %}#b91c1c{% else %}#15803d{% endif %}">
+          {{ s.balance|floatformat:0 }} so'm
+        </span>
+      </div>
+      {% empty %}
+      <div style="color:#9ca3af;font-size:13px">Talabalar yo'q</div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- RIGHT: Davomat -->
+  <div class="card card-pad" style="overflow:hidden">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+      <div>
+        <div style="font-size:14px;font-weight:600">Davomat</div>
+        <div style="font-size:11px;color:#6b7280;margin-top:4px">Keldi/yo‘q tugmasi; sababli — faqat kelmaganida belgilanadi</div>
+      </div>
+      <form method="get">
+        <input type="month" name="month" value="{{ month_str }}" class="btn btn-outline btn-sm" onchange="this.form.submit()" style="cursor:pointer">
+      </form>
+    </div>
+
+    {% if matrix %}
+    <div style="overflow-x:auto">
+      <table style="min-width:500px">
+        <thead>
+          <tr>
+            <th style="min-width:140px;position:sticky;left:0;background:#f9fafb;z-index:1">Talaba</th>
+            {% for d in dates %}
+            <th style="text-align:center;min-width:26px;padding:8px 2px;font-size:10px">{{ d.day }}</th>
+            {% endfor %}
+            <th style="text-align:center">%</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in matrix %}
+          <tr>
+            <td style="font-weight:600;position:sticky;left:0;background:#fff;z-index:1">{{ row.student.full_name }}</td>
+            {% for day in row.days %}
+            <td style="text-align:center;padding:3px;vertical-align:middle">
+              {% include 'attendance/_dav_btn.html' with day=day student_pk=row.student.pk %}
+            </td>
+            {% endfor %}
+            <td style="text-align:center">
+              <span style="font-size:12px;font-weight:600;color:{% if row.pct >= 80 %}#4338ca{% elif row.pct >= 60 %}#f59e0b{% else %}#ef4444{% endif %}">
+                {{ row.pct }}%
+              </span>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div style="color:#9ca3af;font-size:13px;padding:32px 0;text-align:center">Talabalar yo'q</div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+window.DAV_TOGGLE_URL = "{% url 'attendance-toggle' %}";
+window.DAV_SET_EXCUSED_URL = "{% url 'attendance-set-excused' %}";
+</script>
+{% endblock %}

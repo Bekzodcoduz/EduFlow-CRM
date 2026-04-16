@@ -1,0 +1,269 @@
+{% extends 'base.html' %}
+{% block title %}Hisobotlar — EduFlow{% endblock %}
+{% block nav_reports %}active{% endblock %}
+{% block bn_reports %}active{% endblock %}
+
+{% block content %}
+<div class="page-head page-head--report-export">
+  <div>
+    <div class="page-title">Hisobotlar va tahlillar</div>
+    <div class="page-sub">Muassasa faoliyati va o'sishi haqida tushunchalar.</div>
+  </div>
+  <div class="page-head-report-actions">
+    {% if user.is_admin %}
+    <form method="get" action="{% url 'finance-export-period' %}" id="report-export-form" class="export-form report-export-form"
+      data-period-url="{% url 'finance-export-period' %}"
+      style="display:flex;gap:8px;align-items:center;justify-content:flex-end">
+      <select name="kind" class="filter-btn export-kind" style="max-width:min(170px,100%);padding:7px 13px;cursor:pointer" title="Hisobot turi">
+        <option value="kunlik">Kunlik</option>
+        <option value="haftalik">Haftalik</option>
+        <option value="oylik" selected>Oylik</option>
+      </select>
+      <select name="scope" class="filter-btn export-period-scope" style="max-width:min(200px,100%);padding:7px 13px;cursor:pointer" title="Davr hisoboti uchun">
+        <option value="markaz">Butun markaz</option>
+        <option value="guruh">Guruh bo‘yicha</option>
+        <option value="talaba">Talaba bo‘yicha</option>
+      </select>
+      <span class="export-group-wrap" style="display:inline-flex;width:min(210px,100%)">
+        <select name="group" class="filter-btn" data-export-group style="width:100%;max-width:min(210px,100%);padding:7px 13px;cursor:pointer" title="Guruh">
+          <option value="">Barcha guruhlar</option>
+          {% for g in export_groups %}
+          <option value="{{ g.pk }}">{{ g.name }}</option>
+          {% endfor %}
+        </select>
+      </span>
+      <span class="export-student-wrap" style="display:inline-flex;width:min(210px,100%)">
+        <select name="student" class="filter-btn" data-export-student style="width:100%;max-width:min(210px,100%);padding:7px 13px;cursor:pointer" title="Talaba">
+          <option value="">Barcha talabalar</option>
+          {% for s in export_students %}
+          <option value="{{ s.pk }}" data-group="{% if s.group %}{{ s.group.pk }}{% endif %}">{{ s.full_name }}{% if s.group %} — {{ s.group.name }}{% endif %}</option>
+          {% endfor %}
+        </select>
+      </span>
+      <span class="export-period-davr export-period-day" style="display:none;align-items:center;gap:6px;flex:0 0 auto;min-width:min(178px,100%)">
+        <input type="date" name="d_date" value="{{ today_iso }}" class="filter-btn export-inp-day" style="box-sizing:border-box;width:100%;min-width:140px;max-width:178px;padding:6px 10px;border-radius:8px;border:1px solid #e5e7eb;font-size:13px">
+      </span>
+      <span class="export-period-davr export-period-week" style="display:none;align-items:center;gap:6px;flex:0 0 auto;min-width:min(178px,100%)">
+        <input type="week" name="w_week" value="{{ week_input_value }}" class="filter-btn export-inp-week" style="box-sizing:border-box;width:100%;min-width:140px;max-width:178px;padding:6px 10px;border-radius:8px;border:1px solid #e5e7eb;font-size:13px">
+      </span>
+      <span class="export-period-davr export-period-month" style="display:inline-flex;align-items:center;gap:6px;flex:0 0 auto;min-width:min(178px,100%)">
+        <input type="month" name="m_month" value="{{ month_input_value }}" class="filter-btn export-inp-oy" style="box-sizing:border-box;width:100%;min-width:140px;max-width:178px;padding:6px 10px;border-radius:8px;border:1px solid #e5e7eb;font-size:13px">
+      </span>
+      <button type="submit" class="btn btn-primary" style="display:inline-flex;align-items:center;gap:6px;flex:0 0 auto">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Hisobotni yuklash
+      </button>
+    </form>
+    <p class="report-export-hint" style="font-size:11px;color:#64748b;margin:0;line-height:1.4;text-align:right;max-width:720px">
+      <strong>Davr hisobotlari</strong> — kunlik, haftalik va oylik Excel.
+    </p>
+    {% endif %}
+  </div>
+</div>
+
+<div class="stat-grid stat-grid-3 period-income-grid" style="margin-top:-8px">
+  <div class="stat-card">
+    <div class="sc-icon" style="background:#eef2ff"><svg viewBox="0 0 24 24" fill="none" stroke="#4338ca" stroke-width="2"><path d="M8 2v4"/><path d="M16 2v4"/><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M3 10h18"/></svg></div>
+    <div class="sc-label">Kunlik tushum</div>
+    <div class="sc-value" style="font-size:22px">{{ daily_income|floatformat:0 }} so'm</div>
+    <div class="sc-trend trend-ne">{{ today_date|date:"d.m.Y" }}</div>
+    <div style="margin-top:6px;font-size:11px;color:#64748b;line-height:1.45">
+      Naqd: {{ daily_income_methods.cash|floatformat:0 }} | O'tkazish: {{ daily_income_methods.transfer|floatformat:0 }} | Terminal: {{ daily_income_methods.terminal|floatformat:0 }}
+    </div>
+    {% if user.is_admin %}
+    <a class="btn btn-outline btn-sm" style="margin-top:10px" href="{% url 'finance-export-period' %}?kind=kunlik&scope=markaz&d_date={{ today_iso }}">Excel yuklash</a>
+    {% endif %}
+  </div>
+  <div class="stat-card">
+    <div class="sc-icon" style="background:#ecfdf5"><svg viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2"><path d="M3 5h18"/><path d="M3 12h18"/><path d="M3 19h18"/></svg></div>
+    <div class="sc-label">Haftalik tushum</div>
+    <div class="sc-value" style="font-size:22px">{{ weekly_income|floatformat:0 }} so'm</div>
+    <div class="sc-trend trend-ne">{{ week_start|date:"d.m.Y" }} — {{ week_end|date:"d.m.Y" }}</div>
+    <div style="margin-top:6px;font-size:11px;color:#64748b;line-height:1.45">
+      Naqd: {{ weekly_income_methods.cash|floatformat:0 }} | O'tkazish: {{ weekly_income_methods.transfer|floatformat:0 }} | Terminal: {{ weekly_income_methods.terminal|floatformat:0 }}
+    </div>
+    {% if user.is_admin %}
+    <a class="btn btn-outline btn-sm" style="margin-top:10px" href="{% url 'finance-export-period' %}?kind=haftalik&scope=markaz&w_week={{ week_input_value }}">Excel yuklash</a>
+    {% endif %}
+  </div>
+  <div class="stat-card">
+    <div class="sc-icon" style="background:#fffbeb"><svg viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 14l3-3 3 2 4-5"/></svg></div>
+    <div class="sc-label">Oylik tushum</div>
+    <div class="sc-value" style="font-size:22px">{{ monthly_income|floatformat:0 }} so'm</div>
+    <div class="sc-trend trend-ne">{{ month_start|date:"m.Y" }}</div>
+    <div style="margin-top:6px;font-size:11px;color:#64748b;line-height:1.45">
+      Naqd: {{ monthly_income_methods.cash|floatformat:0 }} | O'tkazish: {{ monthly_income_methods.transfer|floatformat:0 }} | Terminal: {{ monthly_income_methods.terminal|floatformat:0 }}
+    </div>
+    {% if user.is_admin %}
+    <a class="btn btn-outline btn-sm" style="margin-top:10px" href="{% url 'finance-export-period' %}?kind=oylik&scope=markaz&m_month={{ month_input_value }}">Excel yuklash</a>
+    {% endif %}
+  </div>
+</div>
+
+<!-- KPI STATS -->
+<div class="stat-grid">
+  <div class="stat-card">
+    <div class="sc-icon" style="background:#eef2ff"><svg viewBox="0 0 24 24" fill="none" stroke="#4338ca" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
+    <div class="sc-label">Umumiy davomat</div>
+    <div class="sc-value">{{ avg_att }}%</div>
+    <div class="sc-trend trend-ne">Joriy davr ko'rsatkichi</div>
+  </div>
+  <div class="stat-card">
+    <div class="sc-icon" style="background:#ecfdf5"><svg viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg></div>
+    <div class="sc-label">Yangi a'zolar</div>
+    <div class="sc-value">{{ total_students }}</div>
+    <div class="sc-trend trend-ne">Jami talabalar</div>
+  </div>
+  <div class="stat-card">
+    <div class="sc-icon" style="background:#ecfdf5"><svg viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
+    <div class="sc-label">Jami daromad</div>
+    <div class="sc-value" style="font-size:18px">{{ total_income|floatformat:0 }} so'm</div>
+    <div class="sc-trend trend-ne">Joriy davr ko'rsatkichi</div>
+  </div>
+  <div class="stat-card">
+    <div class="sc-icon" style="background:#fef2f2"><svg viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div>
+    <div class="sc-label">Mavjud qarzdorlik</div>
+    <div class="sc-value" style="font-size:18px">{{ debtors_total|floatformat:0 }} so'm</div>
+    <div class="sc-trend trend-dn">{{ debtors_count }} ta talaba (butun markaz, bu oy)</div>
+  </div>
+</div>
+
+<!-- Tushum grafigi -->
+<div class="chart-card report-income-chart" style="margin-bottom:16px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+      <div class="chart-title">Tushum dinamikasi</div>
+      <div style="display:flex;gap:12px;font-size:12px">
+        <span style="display:flex;align-items:center;gap:4px"><span style="width:8px;height:8px;border-radius:50%;background:#4338ca;display:inline-block"></span>Yalpi daromad</span>
+        <span style="display:flex;align-items:center;gap:4px"><span style="width:8px;height:8px;border-radius:50%;background:#c7d2fe;display:inline-block"></span>Maqsad</span>
+      </div>
+    </div>
+    <div class="chart-sub">Barcha akademik bo'limlar bo'yicha oylik tushum oqimi</div>
+    <div class="bar-wrap" id="his-chart"></div>
+    <div class="bar-labels-row" id="his-lbls"></div>
+    <div style="background:#eef2ff;border-radius:10px;padding:14px 16px;margin-top:14px;display:flex;gap:20px;align-items:center">
+      <div style="flex:1">
+        <div style="font-size:10px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px">Jami tushum</div>
+        <div style="font-size:22px;font-weight:700;color:#4338ca;margin-top:3px">{{ total_income|floatformat:0 }} so'm</div>
+        <div style="font-size:12px;color:#6b7280;font-weight:500;margin-top:2px">Joriy davr bo'yicha umumiy tushum</div>
+      </div>
+      <div style="flex:1">
+        <div style="font-size:10px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">O'sish darajasi</div>
+        <div class="progress-bar"><div class="progress-fill" style="width:100%;background:#4338ca"></div></div>
+        <div style="font-size:11px;color:#6b7280;margin-top:4px">Dinamik ko'rsatkichlar asosida yangilanadi</div>
+      </div>
+    </div>
+  </div>
+
+<!-- Guruhlar samaradorligi -->
+<div class="table-card">
+  <div style="padding:14px 18px;border-bottom:1px solid #e5e7eb;font-size:14px;font-weight:600">Guruhlar samaradorligi</div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>#</th><th>Guruh</th><th>O'qituvchi</th><th>Talabalar</th><th>Davomat</th><th>Daromad</th><th>Holat</th></tr>
+      </thead>
+      <tbody>
+        {% for d in group_data %}
+        <tr>
+          <td style="color:#9ca3af;font-size:12px">{{ forloop.counter }}</td>
+          <td><a href="{% url 'group-detail' d.group.pk %}" style="font-weight:600;color:#4338ca">{{ d.group.name }}</a></td>
+          <td style="font-size:12px;color:#6b7280">{{ d.group.teacher|default:"—" }}</td>
+          <td style="font-weight:600">{{ d.student_count }} ta</td>
+          <td>
+            <div style="display:flex;align-items:center;gap:8px">
+              <div class="progress-bar" style="width:70px;height:5px">
+                <div class="progress-fill" style="width:{{ d.attendance }}%;background:{% if d.attendance >= 85 %}#4338ca{% elif d.attendance >= 70 %}#f59e0b{% else %}#ef4444{% endif %}"></div>
+              </div>
+              <span style="font-size:12px;font-weight:600;color:{% if d.attendance >= 85 %}#4338ca{% elif d.attendance >= 70 %}#f59e0b{% else %}#ef4444{% endif %}">{{ d.attendance }}%</span>
+            </div>
+          </td>
+          <td style="font-weight:600;color:#111827">{{ d.revenue|floatformat:0 }} so'm</td>
+          <td><span class="badge {% if d.group.is_active %}badge-green{% else %}badge-gray{% endif %}">{% if d.group.is_active %}Faol{% else %}Yopilgan{% endif %}</span></td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="7" style="text-align:center;padding:32px;color:#9ca3af">Ma'lumot topilmadi</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Davomat by group -->
+{% if att_data %}
+<div class="chart-card" style="margin-top:14px">
+  <div class="chart-title" style="margin-bottom:14px">Davomat darajasi (guruhlar bo'yicha)</div>
+  {% for a in att_data %}
+  <div class="prog-row">
+    <div class="prog-name">{{ a.name }}</div>
+    <div class="progress-bar">
+      <div class="progress-fill" style="width:{{ a.pct }}%;background:{% if a.pct >= 85 %}#4338ca{% elif a.pct >= 70 %}#f59e0b{% else %}#ef4444{% endif %}"></div>
+    </div>
+    <div class="prog-pct" style="color:{% if a.pct >= 85 %}#4338ca{% elif a.pct >= 70 %}#f59e0b{% else %}#ef4444{% endif %}">{{ a.pct }}%</div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const monthlyData = {{ monthly_data_json|safe }};
+document.addEventListener('DOMContentLoaded', function() {
+  if (typeof renderBarChart === 'function' && Array.isArray(monthlyData) && monthlyData.length) {
+    renderBarChart('his-chart', 'his-lbls', monthlyData, 'total', 'label', '#4338ca');
+  }
+  (function initMonthlyReportExport() {
+    var form = document.getElementById('report-export-form');
+    if (!form) return;
+
+    var kindEl = form.querySelector('[name="kind"]');
+    var scopeEl = form.querySelector('[name="scope"]');
+    var gEl = form.querySelector('[name="group"]');
+    var sEl = form.querySelector('[name="student"]');
+    var groupWrap = form.querySelector('.export-group-wrap');
+    var studentWrap = form.querySelector('.export-student-wrap');
+    var dayWrap = form.querySelector('.export-period-day');
+    var weekWrap = form.querySelector('.export-period-week');
+    var monthWrap = form.querySelector('.export-period-month');
+    var dayInput = form.querySelector('[name="d_date"]');
+    var weekInput = form.querySelector('[name="w_week"]');
+    var monthInput = form.querySelector('[name="m_month"]');
+
+    function setSlotVisible(wrapEl, inputEl, visible) {
+      if (wrapEl) {
+        wrapEl.style.display = visible ? 'inline-flex' : 'none';
+      }
+      if (inputEl) inputEl.disabled = !visible;
+    }
+
+    function applyScope() {
+      if (!scopeEl || !gEl || !sEl) return;
+      Array.from(sEl.options).forEach(function (opt) { opt.hidden = false; });
+      if (scopeEl.value === 'markaz') {
+        setSlotVisible(groupWrap, gEl, true);
+        setSlotVisible(studentWrap, sEl, false);
+        if (gEl) gEl.disabled = true;
+      } else if (scopeEl.value === 'guruh') {
+        setSlotVisible(groupWrap, gEl, true);
+        setSlotVisible(studentWrap, sEl, false);
+      } else if (scopeEl.value === 'talaba') {
+        setSlotVisible(groupWrap, gEl, false);
+        setSlotVisible(studentWrap, sEl, true);
+      }
+    }
+
+    function applyKind() {
+      if (!kindEl) return;
+      setSlotVisible(dayWrap, dayInput, kindEl.value === 'kunlik');
+      setSlotVisible(weekWrap, weekInput, kindEl.value === 'haftalik');
+      setSlotVisible(monthWrap, monthInput, kindEl.value === 'oylik');
+    }
+
+    if (scopeEl) scopeEl.addEventListener('change', applyScope);
+    if (kindEl) kindEl.addEventListener('change', applyKind);
+    applyScope();
+    applyKind();
+  })();
+});
+</script>
+{% endblock %}

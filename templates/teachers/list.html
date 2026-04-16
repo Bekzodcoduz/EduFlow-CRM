@@ -1,0 +1,187 @@
+{% extends 'base.html' %}
+{% block title %}O'qituvchilar — EduFlow{% endblock %}
+{% block nav_teachers %}active{% endblock %}
+{% block bn_teachers %}active{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <div class="page-title">O'qituvchilar tarkibi</div>
+    <div class="page-sub">{{ departments_count }} ta bo'lim bo'yicha {{ total }} ta o'qituvchi ko'rinmoqda.</div>
+  </div>
+  {% if user.is_admin %}
+  <button class="btn btn-primary" onclick="openModal('modal-teacher')">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    O'qituvchi qo'shish
+  </button>
+  {% endif %}
+</div>
+
+<div class="stat-grid stat-grid-2" style="margin-bottom:22px">
+  <a href="{% url 'teachers' %}" class="stat-card" style="text-decoration:none">
+    <div class="sc-label">Jami o'qituvchilar</div>
+    <div class="sc-value">{{ total }}</div>
+  </a>
+  <a href="{% url 'teachers' %}?subject=__filled__" class="stat-card" style="text-decoration:none">
+    <div class="sc-label">Bo'limlar</div>
+    <div class="sc-value">{{ departments_count }}</div>
+  </a>
+</div>
+
+<div class="table-card">
+  <div class="table-toolbar">
+    <form method="get" style="display:contents">
+      <div class="table-search">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input name="q" value="{{ q }}" placeholder="O'qituvchini qidirish..." onchange="this.form.submit()">
+      </div>
+      <select name="subject" class="filter-btn" onchange="this.form.submit()" style="appearance:none;padding:7px 13px">
+        <option value="">Fan: Barcha fanlar</option>
+        {% for s in subject_options %}
+        <option value="{{ s }}" {% if subject == s %}selected{% endif %}>{{ s }}</option>
+        {% endfor %}
+      </select>
+      <select name="group" class="filter-btn" onchange="this.form.submit()" style="appearance:none;padding:7px 13px">
+        <option value="">Guruh: Barcha guruhlar</option>
+        {% for g in group_options %}
+        <option value="{{ g.pk }}" {% if group_id == g.pk|stringformat:'s' %}selected{% endif %}>{{ g.name }}</option>
+        {% endfor %}
+      </select>
+      <a href="{% url 'teachers' %}" style="margin-left:auto;font-size:12px;color:#4338ca;cursor:pointer;font-weight:500;text-decoration:none">Barcha filtrlarni tozalash</a>
+    </form>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>O'qituvchi</th>
+          <th>Login</th>
+          <th>Fan</th>
+          <th>Biriktirilgan guruhlar</th>
+          <th>Parol</th>
+          <th>Amallar</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for t in teachers %}
+        <tr>
+          <td>
+            <div class="av-wrap">
+              <div class="avatar av-40" style="background:#e0e7ff;color:#3730a3">{{ t.initials }}</div>
+              <div>
+                <a href="{% url 'teacher-detail' t.pk %}" class="td-name" style="color:#4338ca;text-decoration:none">{{ t.full_name }}</a>
+                <div class="td-sub">{% if forloop.first %}Katta o'qituvchi{% else %}Dotsent{% endif %}</div>
+              </div>
+            </div>
+          </td>
+          <td>
+            <span class="td-mono">{{ t.username }}</span>
+          </td>
+          <td>
+            {% if t.subject %}<span class="badge badge-indigo">{{ t.subject }}</span>{% else %}—{% endif %}
+          </td>
+          <td>
+            {% for g in t.teacher_groups.all|slice:":3" %}
+            <span class="badge badge-gray" style="margin-right:3px">{{ g.name|truncatechars:12 }}</span>
+            {% endfor %}
+            {% if t.teacher_groups.count > 3 %}
+            <span class="badge badge-gray">+{{ t.teacher_groups.count|add:"-3" }}</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if user.is_admin %}
+            <form method="post" action="{% url 'teacher-update-credentials' t.pk %}" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+              {% csrf_token %}
+              <input type="hidden" name="username" value="{{ t.username }}">
+              <input type="text" name="password" placeholder="Yangi parol" style="width:110px;padding:6px 8px;border:1px solid #e5e7eb;border-radius:7px;font-size:12px">
+              <button type="submit" class="btn btn-outline btn-sm">Yangilash</button>
+            </form>
+            {% else %}
+            —
+            {% endif %}
+          </td>
+          <td>
+            {% if user.is_admin %}
+            <form method="post" action="{% url 'teacher-update-credentials' t.pk %}" style="display:inline-flex;gap:6px;align-items:center;margin-right:8px">
+              {% csrf_token %}
+              <input type="text" name="username" value="{{ t.username }}" style="width:120px;padding:6px 8px;border:1px solid #e5e7eb;border-radius:7px;font-size:12px">
+              <button type="submit" class="btn btn-outline btn-sm">Loginni saqlash</button>
+            </form>
+            <form method="post" action="{% url 'teacher-delete' t.pk %}" style="display:inline" onsubmit="return confirm('O\'chirilsinmi?')">
+              {% csrf_token %}
+              <button type="submit" class="btn-icon">🗑</button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="6" style="text-align:center;padding:40px;color:#9ca3af">O'qituvchilar topilmadi</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="pagination">
+    <div class="pag-info">
+      {% if page_obj.paginator.num_pages > 1 %}
+        {{ page_obj.start_index }}–{{ page_obj.end_index }} / {{ page_obj.paginator.count }} ta o'qituvchi
+      {% else %}
+        {{ total }} ta o'qituvchi ko'rsatilmoqda
+      {% endif %}
+    </div>
+    {% if page_obj.paginator.num_pages > 1 %}
+    <div class="pag-btns">
+      {% if page_obj.has_previous %}
+      <a href="?page={{ page_obj.previous_page_number }}" class="pag-btn" aria-label="Oldingi sahifa">‹</a>
+      {% else %}
+      <span class="pag-btn" style="opacity:.35;pointer-events:none">‹</span>
+      {% endif %}
+      {% for num in page_obj.paginator.page_range %}
+      {% if num == page_obj.number %}
+      <span class="pag-btn active">{{ num }}</span>
+      {% else %}
+      <a href="?page={{ num }}" class="pag-btn">{{ num }}</a>
+      {% endif %}
+      {% endfor %}
+      {% if page_obj.has_next %}
+      <a href="?page={{ page_obj.next_page_number }}" class="pag-btn" aria-label="Keyingi sahifa">›</a>
+      {% else %}
+      <span class="pag-btn" style="opacity:.35;pointer-events:none">›</span>
+      {% endif %}
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+{% if user.is_admin %}
+<div class="modal-backdrop" id="modal-teacher">
+  <div class="modal-box">
+    <div class="modal-head">
+      <div class="modal-title">O'qituvchi qo'shish</div>
+      <button class="modal-close" onclick="closeModal('modal-teacher')">✕</button>
+    </div>
+    <form method="post" action="{% url 'teacher-create' %}">
+      {% csrf_token %}
+      <div class="modal-body">
+        <div class="section-label">Shaxsiy ma'lumotlar</div>
+        <div class="form-row">
+          <div class="form-group"><label>Ism *</label><input name="first_name" placeholder="Ism" required></div>
+          <div class="form-group"><label>Familiya *</label><input name="last_name" placeholder="Familiya" required></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>Fan *</label><input name="subject" placeholder="Ingliz tili" required></div>
+          <div class="form-group"><label>Telefon</label><input name="phone" placeholder="+998 90 000 00 00"></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>Login *</label><input name="username" placeholder="login kiriting" required></div>
+          <div class="form-group"><label>Parol *</label><input name="password" type="text" placeholder="kamida 4 belgi" required></div>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button type="button" class="btn btn-outline" onclick="closeModal('modal-teacher')">Bekor qilish</button>
+        <button type="submit" class="btn btn-primary">Saqlash</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

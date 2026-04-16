@@ -1,0 +1,57 @@
+{% extends 'base.html' %}
+{% block title %}SMS xabarlar — EduFlow{% endblock %}
+{% block nav_sms %}active{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <div class="page-title">SMS xabarlar</div>
+    <div class="page-sub">Barcha faol talabalar uchun: xabar talaba va ota yoki ona telefoniga yuboriladi (bir xil raqam takrorlanmaydi). Provayder keyin ulanadi.</div>
+  </div>
+</div>
+
+<div class="card card-pad" style="max-width:640px">
+  <form method="post" action="{% url 'messaging-sms' %}">
+    {% csrf_token %}
+    <div class="form-group" style="margin-bottom:16px">
+      <label style="display:block;font-size:11px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Kimga yuboriladi</label>
+      <select id="audience-select" name="audience" class="filter-btn" style="width:100%;padding:10px 14px;border-radius:9px;font-size:13px;border:1px solid #e5e7eb;background:#fff">
+        <option value="all_students" selected>Barcha faol talabalar</option>
+        <option value="debtors">Faqat qarzdorlar</option>
+        <option value="manual">Faqat quyidagi raqamlarga</option>
+      </select>
+    </div>
+    <div class="form-group" id="phones-field" style="margin-bottom:16px;display:none">
+      <label style="display:block;font-size:11px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Telefon raqamlar (ixtiyoriy, har bir qatorda yoki vergul bilan)</label>
+      <textarea name="phones" rows="3" placeholder="+998901234567&#10;+998907654321" style="width:100%;padding:12px;border:1px solid #e5e7eb;border-radius:9px;font-size:13px;resize:vertical;font-family:monospace"></textarea>
+      <div style="font-size:11px;color:#9ca3af;margin-top:4px">«Faqat quyidagi raqamlarga» tanlansa ishlatiladi.</div>
+    </div>
+    <div class="form-group" style="margin-bottom:18px">
+      <label style="display:block;font-size:11px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Xabar matni *</label>
+      <textarea name="message" rows="5" required maxlength="480" placeholder="Masalan: Ertaga dars 09:00 da boshlanadi." style="width:100%;padding:12px;border:1px solid #e5e7eb;border-radius:9px;font-size:14px;resize:vertical"></textarea>
+      <div style="font-size:11px;color:#9ca3af;margin-top:4px">Maksimal 480 belgi (ko'p SMS provayderlar uchun).</div>
+    </div>
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <button type="submit" class="btn btn-primary">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+        SMS yuborish
+      </button>
+      <span style="font-size:12px;color:#9ca3af">Hozircha faqat so'rov saqlanadi; yuborish keyin ulanadi.</span>
+    </div>
+  </form>
+</div>
+<script>
+(function () {
+  const sel = document.getElementById('audience-select');
+  const field = document.getElementById('phones-field');
+  if (!sel || !field) return;
+
+  function sync() {
+    field.style.display = sel.value === 'manual' ? 'block' : 'none';
+  }
+
+  sel.addEventListener('change', sync);
+  sync();
+})();
+</script>
+{% endblock %}
