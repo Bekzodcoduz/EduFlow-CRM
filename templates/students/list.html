@@ -7,7 +7,7 @@
 <div class="page-head">
   <div>
     <div class="page-title">Talabalarni boshqarish</div>
-    <div class="page-sub">2024-o'quv yili uchun ro'yxatga olish, holat va yozuvlarni boshqarish.</div>
+    <div class="page-sub">Ro'yxatga olish, holat va yozuvlarni boshqarish.</div>
   </div>
   {% if user.is_admin %}
   <button class="btn btn-primary" onclick="openModal('modal-student')">
@@ -30,8 +30,8 @@
       </select>
       <select name="status" class="filter-btn" onchange="this.form.submit()" style="appearance:none;padding:7px 13px">
         <option value="">To'lov holati ▾</option>
-        <option value="debtor" {% if status == 'debtor' %}selected{% endif %}>Bu oy to'lanmagan</option>
-        <option value="paid" {% if status == 'paid' %}selected{% endif %}>Bu oy to'lagan</option>
+        <option value="debtor" {% if status == 'debtor' %}selected{% endif %}>Bu oy to'liq to'lmagan</option>
+        <option value="paid" {% if status == 'paid' %}selected{% endif %}>Bu oy to'liq to'lagan</option>
       </select>
     </form>
   </div>
@@ -40,6 +40,7 @@
     <table>
       <thead>
         <tr>
+          <th>#</th>
           <th>Rasm</th>
           <th>To'liq ism</th>
           <th>Telefon raqami</th>
@@ -51,6 +52,7 @@
       <tbody>
         {% for s in students %}
         <tr>
+          <td style="color:#9ca3af;font-size:12px">{{ forloop.counter }}</td>
           <td>
             <div class="avatar av-36" style="background:#e0e7ff;color:#3730a3">{{ s.initials }}</div>
           </td>
@@ -65,33 +67,37 @@
             {% else %}—{% endif %}
           </td>
           <td>
-            <span class="badge {% if s.paid_this_month %}badge-green{% else %}badge-red{% endif %}">
-              <span class="badge-dot"></span>
-              {% if s.paid_this_month %}TO'LANGAN{% else %}TO'LANMAGAN{% endif %}
-            </span>
+            {% if s.month_fee_status == 'full' %}
+            <span class="badge badge-green"><span class="badge-dot"></span>TO'LANGAN</span>
+            {% elif s.month_fee_status == 'partial' %}
+            <span class="badge badge-yellow"><span class="badge-dot"></span>QISMAN</span>
+            <div style="font-size:11px;color:#92400e;margin-top:4px;font-weight:600">Qoldiq: {{ s.month_fee_remaining|floatformat:0 }} so'm</div>
+            {% elif s.month_fee_status == 'none' %}
+            <span class="badge badge-red"><span class="badge-dot"></span>TO'LANMAGAN</span>
+            {% if s.month_fee_expected %}<div style="font-size:11px;color:#b91c1c;margin-top:4px;font-weight:600">Qarz: {{ s.month_fee_remaining|floatformat:0 }} so'm</div>{% endif %}
+            {% else %}
+            <span class="badge badge-gray"><span class="badge-dot"></span>—</span>
+            <div style="font-size:11px;color:#9ca3af;margin-top:4px">Guruh / oylik reja yo'q</div>
+            {% endif %}
           </td>
           <td>
-            <form method="post" action="{% url 'student-delete' s.pk %}" style="display:inline" onsubmit="return confirm('O\'chirilsinmi?')">
-              {% csrf_token %}
-              <button type="submit" class="btn-icon">🗑</button>
-            </form>
+            <div style="display:flex;align-items:center;gap:2px">
+              <a href="{% url 'student-edit' s.pk %}" class="btn-icon-pencil" title="Tahrirlash">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 3a2.828 2.828 0 1 1 4 4L7 21l-4 1 1-4L17 3z"/></svg>
+                <span class="sr-only">Tahrirlash</span>
+              </a>
+              <form method="post" action="{% url 'student-delete' s.pk %}" style="display:inline" onsubmit="return confirm('O\'chirilsinmi?')">
+                {% csrf_token %}
+                <button type="submit" class="btn-icon" title="O'chirish">🗑</button>
+              </form>
+            </div>
           </td>
         </tr>
         {% empty %}
-        <tr><td colspan="6" style="text-align:center;padding:40px;color:#9ca3af">Talabalar topilmadi</td></tr>
+        <tr><td colspan="7" style="text-align:center;padding:40px;color:#9ca3af">Talabalar topilmadi</td></tr>
         {% endfor %}
       </tbody>
     </table>
-  </div>
-  <div class="pagination">
-    <div class="pag-info">{{ students.count }} tadan 1–{{ students.count }} gacha talabalar ko'rsatilmoqda</div>
-    <div class="pag-btns">
-      <button class="pag-btn">‹</button>
-      <button class="pag-btn active">1</button>
-      <button class="pag-btn">2</button>
-      <button class="pag-btn">3</button>
-      <button class="pag-btn">›</button>
-    </div>
   </div>
 </div>
 
@@ -114,20 +120,10 @@
         </div>
         <div class="form-row">
           <div class="form-group"><label>Telefon raqami *</label><input name="phone" placeholder="+998 90 000 00 00" required></div>
-          <div class="form-group"><label>Tug'ilgan sana</label><input type="date" name="birth_date"></div>
         </div>
         <div class="form-group">
           <label>Ota yoki ona telefoni (SMS — ixtiyoriy)</label>
           <input name="parent_phone" placeholder="+998 90 000 00 00">
-        </div>
-        <div class="form-row">
-          <div class="form-group"><label>Jinsi</label>
-            <select name="gender">
-              <option value="">— Tanlang —</option>
-              <option value="male">Erkak</option>
-              <option value="female">Ayol</option>
-            </select>
-          </div>
         </div>
 
         <div class="section-label">O'quv ma'lumotlari</div>

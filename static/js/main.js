@@ -131,12 +131,12 @@ function renderBarChart(containerId, labelsId, data, valueKey, labelKey, color) 
   }
 }
 
-// ===== DAVOMAT: keldi <-> kelmadi; sababli alohida checkbox =====
+// ===== DAVOMAT: keldi <-> kelmadi =====
 function davCellInnerHTML(cellState) {
   if (cellState === 'present') {
     return '<svg viewBox="0 0 24 24" fill="none" stroke="#4338ca" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>';
   }
-  if (cellState === 'absent' || cellState === 'excused') {
+  if (cellState === 'absent') {
     return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
   }
   return '';
@@ -144,13 +144,10 @@ function davCellInnerHTML(cellState) {
 
 function applyDavCellState(btn, cellState) {
   if (!btn) return;
-  btn.classList.remove('present', 'absent', 'excused-absent');
+  btn.classList.remove('present', 'absent');
   btn.dataset.cellState = cellState || 'empty';
   if (cellState === 'present') btn.classList.add('present');
   else if (cellState === 'absent') btn.classList.add('absent');
-  else if (cellState === 'excused') {
-    btn.classList.add('absent', 'excused-absent');
-  }
   btn.innerHTML = davCellInnerHTML(cellState || 'empty');
 }
 
@@ -158,13 +155,8 @@ function applyDavCellStateForSync(studentId, dateStr, cellState) {
   const sel = '[data-dav-sync="' + String(studentId) + '|' + String(dateStr) + '"]';
   document.querySelectorAll(sel).forEach(function (root) {
     const btn = root.querySelector('.dav-cell[data-role="presence"]');
-    const cb = root.querySelector('.dav-sababli-cb');
     if (btn) {
       applyDavCellState(btn, cellState);
-    }
-    if (cb) {
-      cb.disabled = (cellState === 'present' || cellState === 'empty');
-      cb.checked = (cellState === 'excused');
     }
   });
 }
@@ -208,47 +200,10 @@ function toggleDavPresenceBtn(btn) {
     });
 }
 
-function onDavExcusedToggle(cb) {
-  const studentId = cb.dataset.student;
-  const dateStr = cb.dataset.date;
-  const want = cb.checked;
-  const prevChecked = !want;
-  const url = window.DAV_SET_EXCUSED_URL;
-  if (!url) {
-    console.error('DAV_SET_EXCUSED_URL sozlanmagan');
-    cb.checked = prevChecked;
-    return;
-  }
-
-  fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-CSRFToken': getCsrf()
-    },
-    body: JSON.stringify({
-      student_id: studentId,
-      date: dateStr,
-      excused_absence: want,
-    }),
-  })
-    .then(r => r.json())
-    .then(data => {
-      if (data.error) throw new Error(data.error);
-      applyDavCellStateForSync(studentId, dateStr, data.cell_state);
-      document.dispatchEvent(new CustomEvent('davomatUpdated', { detail: { studentId: studentId, dateStr: dateStr } }));
-    })
-    .catch(function (err) {
-      cb.checked = prevChecked;
-      console.error('Sababli belgilash xatosi:', err);
-    });
-}
-
 window.applyDavCellState = applyDavCellState;
 window.applyDavCellStateForSync = applyDavCellStateForSync;
 window.davCellInnerHTML = davCellInnerHTML;
 window.toggleDavPresenceBtn = toggleDavPresenceBtn;
-window.onDavExcusedToggle = onDavExcusedToggle;
 
 /** @deprecated url param — DAV_TOGGLE_URL ishlating */
 function toggleAttendance(btn, studentId, dateStr, url) {

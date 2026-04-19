@@ -59,22 +59,21 @@ def reports_view(request):
         income_qs.filter(created_at__date__gte=month_start, created_at__date__lte=month_end)
     )
 
-    # Mavjud qarzdorlik kartasi: butun markaz bo'yicha — bu oy to'lanmaganlar summasi
-    today = timezone.localdate()
-    month_start = today.replace(day=1)
-    month_end = today.replace(day=calendar.monthrange(today.year, today.month)[1])
-    all_active_students = Student.objects.filter(is_active=True).select_related('group')
-    paid_ids = set(
-        Payment.objects.filter(
-            payment_type=Payment.INCOME,
-            student__is_active=True,
-            created_at__date__gte=month_start,
-            created_at__date__lte=month_end,
-        ).values_list('student_id', flat=True).distinct()
-    )
-    unpaid_students_qs = all_active_students.exclude(pk__in=paid_ids)
-    debtors_total = int(unpaid_students_qs.aggregate(s=Sum('group__price'))['s'] or 0)
-    debtors_count = unpaid_students_qs.count()
+    # Bu oy oylik bo'yicha qoldiq: har bir talaba uchun (guruh narxi - shu oy kirimi)
+    from apps.students.month_fee import apply_month_fee_status, month_income_totals_by_student
+
+    if user.is_admin:
+        scope_students = list(Student.objects.filter(is_active=True).select_related('group'))
+    else:
+        scope_students = list(q_students.select_related('group'))
+    paid_map = month_income_totals_by_student([st.pk for st in scope_students], month_start, month_end)
+    debtors_total = 0
+    debtors_count = 0
+    for st in scope_students:
+        apply_month_fee_status(st, paid_map)
+        if st.month_fee_expected > 0 and st.month_fee_paid < st.month_fee_expected:
+            debtors_count += 1
+            debtors_total += int(st.month_fee_remaining)
 
     group_data = []
     for g in q_groups:

@@ -50,17 +50,17 @@
     <div class="fin-bar"><div class="fin-bar-f" style="width:70%"></div></div>
   </div>
   <div class="fin-card">
-    <div class="fin-label">Oylik daromad</div>
-    <div class="fin-value">{{ total_income|floatformat:0 }} so'm</div>
-    <div class="fin-sub">Rejalashtirilgan: {{ total_income|floatformat:0 }} so'm</div>
+    <div class="fin-label">Rejalashtirilgan oylik tushum</div>
+    <div class="fin-value">{{ planned_monthly_income|floatformat:0 }} so'm</div>
+    <div class="fin-sub">Faol talabalar: {{ planned_students_count }} ta</div>
   </div>
   <div class="fin-card danger">
     <div class="fin-label">
-      {{ status_month_label }} to'lanmaganlar
+      {{ status_month_label }} oylik to'liq emas
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
     </div>
     <div class="fin-value">{{ debtors_total }}</div>
-    <div class="fin-sub">Bu oy hali to'lamagan {{ debtors.count }} talaba</div>
+    <div class="fin-sub">Bu oy to'liq to'lmagan {{ debtors|length }} talaba</div>
   </div>
 </div>
 
@@ -70,28 +70,37 @@
     <input type="month" name="month" value="{{ month }}" class="filter-btn" onchange="this.form.submit()" style="padding:7px 13px;cursor:pointer">
     <select name="tab" class="filter-btn" onchange="this.form.submit()" style="appearance:none;padding:7px 13px">
       <option value="payments" {% if tab == 'payments' %}selected{% endif %}>To'lovlar</option>
-      <option value="debtors" {% if tab == 'debtors' %}selected{% endif %}>Bu oy to'lanmaganlar</option>
+      <option value="debtors" {% if tab == 'debtors' %}selected{% endif %}>Bu oy to'liq to'lmaganlar</option>
     </select>
   </form>
 </div>
 
 {% if tab == 'debtors' %}
 <div class="table-card">
-  <div style="padding:14px 18px;border-bottom:1px solid #e5e7eb;font-size:14px;font-weight:600">{{ status_month_label }} bo'yicha to'lanmagan talabalar</div>
+  <div style="padding:14px 18px;border-bottom:1px solid #e5e7eb;font-size:14px;font-weight:600">{{ status_month_label }} bo'yicha to'liq to'lmagan talabalar</div>
   <div class="table-wrap">
     <table>
-      <thead><tr><th>Talaba</th><th>Telefon</th><th>Guruh</th><th>Holat</th><th>Amal</th></tr></thead>
+        <thead><tr><th>#</th><th>Talaba</th><th>Telefon</th><th>Guruh</th><th>Bu oy kirim</th><th>Qoldiq</th><th>Holat</th><th>Amal</th></tr></thead>
       <tbody>
         {% for s in debtors %}
         <tr>
+          <td style="color:#9ca3af;font-size:12px">{{ forloop.counter }}</td>
           <td><div class="av-wrap"><div class="avatar av-36" style="background:#fee2e2;color:#b91c1c">{{ s.initials }}</div><div class="td-name">{{ s.full_name }}</div></div></td>
           <td class="td-mono">{{ s.phone }}</td>
           <td>{% if s.group %}<span class="course-chip">{{ s.group.name }}</span>{% else %}—{% endif %}</td>
-          <td style="font-weight:700;color:#ef4444">To'lanmagan</td>
+          <td style="font-weight:600;color:#374151">{{ s.month_fee_paid|floatformat:0 }} so'm</td>
+          <td style="font-weight:700;color:#b91c1c">{{ s.month_fee_remaining|floatformat:0 }} so'm</td>
+          <td>
+            {% if s.month_fee_status == 'partial' %}
+            <span class="badge badge-yellow"><span class="badge-dot"></span>Qisman</span>
+            {% else %}
+            <span class="badge badge-red"><span class="badge-dot"></span>To'lanmagan</span>
+            {% endif %}
+          </td>
           <td><button class="btn btn-primary btn-sm" onclick="prefillStudent({{ s.pk }}, '{{ s.full_name }}')">To'lov qabul qilish</button></td>
         </tr>
         {% empty %}
-        <tr><td colspan="5" style="text-align:center;padding:40px;color:#9ca3af">Barcha talabalar to'lagan!</td></tr>
+        <tr><td colspan="8" style="text-align:center;padding:40px;color:#9ca3af">Barcha talabalar oylikni to'liq to'lagan!</td></tr>
         {% endfor %}
       </tbody>
     </table>
@@ -105,6 +114,7 @@
     <table>
       <thead>
         <tr>
+          <th>#</th>
           <th>Talaba ismi</th>
           <th>Guruh</th>
           <th>Fan</th>
@@ -112,12 +122,12 @@
           <th>To'lov summasi</th>
           <th>Holati</th>
           <th>To'lov sanasi</th>
-          <th>Amallar</th>
         </tr>
       </thead>
       <tbody>
         {% for p in payments %}
         <tr>
+          <td style="color:#9ca3af;font-size:12px">{{ forloop.counter }}</td>
           <td>
             <div class="av-wrap">
               <div class="avatar av-36" style="background:#e0e7ff;color:#3730a3">{{ p.student.initials }}</div>
@@ -139,12 +149,6 @@
             </span>
           </td>
           <td style="color:#6b7280;font-size:13px">{{ p.created_at|date:"d.m.Y" }}</td>
-          <td>
-            <form method="post" action="{% url 'payment-delete' p.pk %}" style="display:inline" onsubmit="return confirm('O\'chirilsinmi?')">
-              {% csrf_token %}
-              <button type="submit" class="btn-icon">🗑</button>
-            </form>
-          </td>
         </tr>
         {% empty %}
         <tr><td colspan="8" style="text-align:center;padding:40px;color:#9ca3af">To'lovlar topilmadi</td></tr>

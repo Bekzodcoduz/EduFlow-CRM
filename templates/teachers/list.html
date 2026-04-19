@@ -54,6 +54,7 @@
     <table>
       <thead>
         <tr>
+          <th>#</th>
           <th>O'qituvchi</th>
           <th>Login</th>
           <th>Fan</th>
@@ -65,6 +66,7 @@
       <tbody>
         {% for t in teachers %}
         <tr>
+          <td style="color:#9ca3af;font-size:12px">{{ forloop.counter }}</td>
           <td>
             <div class="av-wrap">
               <div class="avatar av-40" style="background:#e0e7ff;color:#3730a3">{{ t.initials }}</div>
@@ -115,7 +117,7 @@
           </td>
         </tr>
         {% empty %}
-        <tr><td colspan="6" style="text-align:center;padding:40px;color:#9ca3af">O'qituvchilar topilmadi</td></tr>
+        <tr><td colspan="7" style="text-align:center;padding:40px;color:#9ca3af">O'qituvchilar topilmadi</td></tr>
         {% endfor %}
       </tbody>
     </table>

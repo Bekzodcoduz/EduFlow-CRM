@@ -22,8 +22,6 @@ def _cell_kind(att: Attendance | None) -> str:
         return 'empty'
     if att.is_present:
         return 'present'
-    if att.excused_absence:
-        return 'excused'
     return 'absent'
 
 
@@ -33,7 +31,6 @@ def _toggle_payload(att: Attendance | None, date_str: str) -> dict:
         'date': date_str,
         'cell_state': kind,
         'is_present': bool(att and att.is_present),
-        'excused_absence': bool(att and att.excused_absence),
     }
 
 
@@ -43,22 +40,18 @@ def _build_matrix_rows(students, dates, att_map: dict):
     for s in students:
         row = []
         present_count = 0
-        billable_count = 0
         no_pay_absent_count = 0
         for d in dates:
             att = att_map.get((s.id, str(d)))
             kind = _cell_kind(att)
             if kind == 'present':
                 present_count += 1
-            if att and att.counts_for_payment:
-                billable_count += 1
-            if att and (not att.is_present) and (not att.excused_absence):
+            if att and not att.is_present:
                 no_pay_absent_count += 1
             row.append({
                 'date': d,
                 'date_str': str(d),
                 'present': att.is_present if att else False,
-                'excused': bool(att and att.excused_absence),
                 'cell_kind': kind,
                 'att_id': att.id if att else None,
             })
@@ -69,9 +62,7 @@ def _build_matrix_rows(students, dates, att_map: dict):
             'pct': pct,
             'present_count': present_count,
             'absent_count': len(dates) - present_count,
-            'billable_count': billable_count,
             'no_pay_absent_count': no_pay_absent_count,
-            'sababli_count': billable_count - present_count,
         })
     return matrix
 
@@ -80,6 +71,22 @@ def _build_matrix_rows(students, dates, att_map: dict):
 def attendance_home(request):
     """Davomat bosh sahifasi — guruh tanlash va kunlik belgilash."""
     groups = _groups_for_user(request.user).filter(is_active=True).select_related('course', 'teacher')
+    selected_course_id = (request.GET.get('course') or '').strip()
+    if selected_course_id.isdigit():
+        groups = groups.filter(course_id=int(selected_course_id))
+    raw_course_groups = (
+        _groups_for_user(request.user)
+        .filter(is_active=True, course__isnull=False)
+        .select_related('course')
+        .order_by('course__name')
+    )
+    seen_course_ids = set()
+    course_options = []
+    for g in raw_course_groups:
+        if not g.course_id or g.course_id in seen_course_ids:
+            continue
+        seen_course_ids.add(g.course_id)
+        course_options.append(g)
 
     selected_gid = request.GET.get('group')
     selected_group = None
@@ -100,6 +107,7 @@ def attendance_home(request):
         selected_group = groups.filter(pk=selected_gid).first()
 
     if selected_group:
+        dates = [d for d in dates if selected_group.is_scheduled_calendar_day(d)]
         students = Student.objects.filter(group=selected_group, is_active=True)
         att_qs = Attendance.objects.filter(
             student__in=students,
@@ -115,25 +123,26 @@ def attendance_home(request):
         total_present = sum(r['present_count'] for r in matrix)
         total_possible = len(matrix) * len(dates)
         total_absent = total_possible - total_present
-        total_billable = sum(r['billable_count'] for r in matrix)
         total_no_pay = sum(r['no_pay_absent_count'] for r in matrix)
-        total_excused = total_billable - total_present
         group_stats = {
             'avg_pct': round(total_pct),
             'total_present': total_present,
             'total_absent': total_absent,
             'total_possible': total_possible,
             'student_count': len(matrix),
-            'total_billable': total_billable,
             'total_no_pay_absent': total_no_pay,
-            'total_excused': total_excused,
         }
 
     today_d = date.today()
     today_in_month = (year, mon) == (today_d.year, today_d.month)
+    today_is_class_day = bool(
+        selected_group and selected_group.is_scheduled_calendar_day(today_d)
+    )
 
     ctx = {
         'groups': groups,
+        'course_options': course_options,
+        'selected_course_id': selected_course_id,
         'selected_group': selected_group,
         'selected_gid': selected_gid,
         'matrix': matrix,
@@ -141,6 +150,7 @@ def attendance_home(request):
         'month_str': month_str,
         'today': today_d,
         'today_in_month': today_in_month,
+        'today_is_class_day': today_is_class_day,
         'group_stats': group_stats,
     }
     return render(request, 'attendance/index.html', ctx)
@@ -149,7 +159,7 @@ def attendance_home(request):
 @login_required
 @require_POST
 def toggle_attendance(request):
-    """AJAX: keldi <-> kelmadi (ketma-ket). Sababli alohida set_excused_absence orqali."""
+    """AJAX: keldi <-> kelmadi (ketma-ket)."""
     try:
         data = json.loads(request.body)
         student_id = data.get('student_id')
@@ -165,6 +175,8 @@ def toggle_attendance(request):
             return JsonResponse({'error': "Ruxsat yo'q"}, status=403)
         if not request.user.is_admin and student.group is None:
             return JsonResponse({'error': "Guruhsiz talaba uchun ruxsat yo'q"}, status=403)
+        if student.group and not student.group.is_scheduled_calendar_day(d):
+            return JsonResponse({'error': "Bu sana guruh jadvali bo'yicha dars kuni emas."}, status=400)
 
         att = Attendance.objects.filter(student_id=student_id, date=d).first()
         if not att:
@@ -172,53 +184,16 @@ def toggle_attendance(request):
                 student_id=student_id,
                 date=d,
                 is_present=True,
-                excused_absence=False,
             )
         elif att.is_present:
             att.is_present = False
-            att.excused_absence = False
             att.save()
         else:
             att.is_present = True
-            att.excused_absence = False
             att.save()
 
         out = _toggle_payload(att, date_str)
         return JsonResponse(out)
-    except Exception as e:
-        return JsonResponse({'error': str(e)}, status=400)
-
-
-@login_required
-@require_POST
-def set_excused_absence(request):
-    """AJAX: faqat kelmagan kun uchun — sababli (to'lov bor) / sababsiz."""
-    try:
-        data = json.loads(request.body)
-        student_id = data.get('student_id')
-        date_str = data.get('date')
-        excused = bool(data.get('excused_absence'))
-        d = date.fromisoformat(date_str)
-
-        student = get_object_or_404(
-            Student.objects.select_related('group'),
-            pk=student_id,
-            is_active=True,
-        )
-        if not request.user.is_admin and student.group and student.group.teacher_id != request.user.id:
-            return JsonResponse({'error': "Ruxsat yo'q"}, status=403)
-        if not request.user.is_admin and student.group is None:
-            return JsonResponse({'error': "Guruhsiz talaba uchun ruxsat yo'q"}, status=403)
-
-        att = Attendance.objects.filter(student_id=student_id, date=d).first()
-        if not att:
-            return JsonResponse({'error': 'Avval kelmadi deb belgilang'}, status=400)
-        if att.is_present:
-            return JsonResponse({'error': "Kelgan kun uchun sababli bo'lmaydi"}, status=400)
-
-        att.excused_absence = excused
-        att.save()
-        return JsonResponse(_toggle_payload(att, date_str))
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=400)
 
@@ -235,6 +210,8 @@ def mark_all(request):
         d = date.fromisoformat(date_str)
 
         group = get_object_or_404(_groups_for_user(request.user), pk=group_id, is_active=True)
+        if not group.is_scheduled_calendar_day(d):
+            return JsonResponse({'error': "Bu sana guruh jadvali bo'yicha dars kuni emas."}, status=400)
         students = Student.objects.filter(group=group, is_active=True)
         for s in students:
             att, created = Attendance.objects.get_or_create(
@@ -242,12 +219,10 @@ def mark_all(request):
                 date=d,
                 defaults={
                     'is_present': is_present,
-                    'excused_absence': False,
                 },
             )
             if not created:
                 att.is_present = is_present
-                att.excused_absence = False
                 att.save()
 
         present_count = Attendance.objects.filter(
@@ -279,6 +254,7 @@ def attendance_report(request, group_id):
 
     days_count = calendar.monthrange(year, mon)[1]
     dates = [date(year, mon, d) for d in range(1, days_count + 1)]
+    dates = [d for d in dates if group.is_scheduled_calendar_day(d)]
 
     students = Student.objects.filter(group=group, is_active=True)
     att_qs = Attendance.objects.filter(

@@ -1,0 +1,72 @@
+{% extends 'base.html' %}
+{% block title %}Tahrirlash: {{ student.full_name }} — EduFlow{% endblock %}
+{% block nav_students %}active{% endblock %}
+{% block bn_students %}active{% endblock %}
+
+{% block content %}
+<div style="margin-bottom:16px">
+  <a href="{% url 'student-detail' student.pk %}" style="display:inline-flex;align-items:center;gap:5px;font-size:13px;color:#6b7280;text-decoration:none">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+    Talaba profiliga qaytish
+  </a>
+</div>
+
+<div class="page-head">
+  <div>
+    <div class="page-title">Talabani tahrirlash</div>
+    <div class="page-sub">{{ student.full_name }}</div>
+  </div>
+</div>
+
+<div class="card card-pad" style="max-width:800px">
+  <form method="post" action="{% url 'student-edit' student.pk %}">
+    {% csrf_token %}
+
+    <div class="section-label">Shaxsiy ma'lumotlar</div>
+    <div class="form-row">
+      <div class="form-group"><label>Ism *</label>
+        <input name="first_name" value="{{ student.first_name }}" required>
+      </div>
+      <div class="form-group"><label>Familiya *</label>
+        <input name="last_name" value="{{ student.last_name }}" required>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Telefon *</label>
+        <input name="phone" value="{{ student.phone }}" placeholder="+998..." required>
+      </div>
+      <div class="form-group"><label>Ota yoki ona telefoni (SMS)</label>
+        <input name="parent_phone" value="{{ student.parent_phone }}" placeholder="+998...">
+      </div>
+    </div>
+    <div class="section-label" style="margin-top:20px">O'quv</div>
+    <div class="form-row">
+      <div class="form-group"><label>Guruh</label>
+        <select name="group">
+          <option value="">— Guruhsiz —</option>
+          {% for g in groups %}
+          <option value="{{ g.pk }}" {% if student.group_id == g.pk %}selected{% endif %}>{{ g.name }}{% if g.course %} — {{ g.course.name }}{% endif %}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group"><label>Qabul sanasi</label>
+        <input type="date" name="enrolled_at" value="{{ student.enrolled_at|date:'Y-m-d' }}">
+      </div>
+    </div>
+    <div class="form-group">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:500">
+        <input type="checkbox" name="is_active" value="1" {% if student.is_active %}checked{% endif %}>
+        Talaba faol (aktiv)
+      </label>
+    </div>
+    <div class="form-group"><label>Izoh</label>
+      <textarea name="note" rows="3" placeholder="Ichki eslatma...">{{ student.note }}</textarea>
+    </div>
+
+    <div style="display:flex;gap:10px;margin-top:24px;flex-wrap:wrap">
+      <a href="{% url 'student-detail' student.pk %}" class="btn btn-outline">Bekor qilish</a>
+      <button type="submit" class="btn btn-primary">Saqlash</button>
+    </div>
+  </form>
+</div>
+{% endblock %}

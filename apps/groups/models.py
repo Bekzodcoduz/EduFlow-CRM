@@ -1,4 +1,4 @@
-from datetime import time
+from datetime import date, time
 
 from django.db import models
 from apps.accounts.models import User
@@ -67,3 +67,14 @@ class Group(models.Model):
     @property
     def days_label(self):
         return dict(self.DAYS_CHOICES).get(self.days, self.days)
+
+    def is_scheduled_calendar_day(self, d: date) -> bool:
+        """Kalendar sanasi guruhning hafta jadvaliga tushadimi (juft / toq / har kuni)."""
+        if self.days == self.DAILY:
+            return True
+        wd = d.weekday()
+        if self.days == self.ODD:
+            return wd in (0, 2, 4)
+        if self.days == self.EVEN:
+            return wd in (1, 3, 5)
+        return True

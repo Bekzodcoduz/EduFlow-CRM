@@ -62,7 +62,6 @@
 
 <p style="font-size:12px;color:#64748b;margin-bottom:12px;line-height:1.5">
   <strong>Keldi / kelmadi:</strong> ko‘k belgi — <strong>keldi</strong>; qizil X — <strong>kelmadi</strong>.
-  <strong>Sababli</strong> (pastki belgi) faqat kelmagan kun uchun — to‘lov uchun hisoblanadi; belgilamasangiz — <strong>sababsiz</strong> (to‘lov yo‘q).
 </p>
 
 <!-- Jadval -->
@@ -79,9 +78,7 @@
           </th>
           {% endfor %}
           <th style="text-align:center;min-width:55px">Keldi</th>
-          <th style="text-align:center;min-width:44px;font-size:10px">Sababli</th>
-          <th style="text-align:center;min-width:48px;font-size:10px;color:#b91c1c">Sababsiz</th>
-          <th style="text-align:center;min-width:50px;font-size:10px">To'lov</th>
+          <th style="text-align:center;min-width:48px;font-size:10px;color:#b91c1c">Kelmadi</th>
           <th style="text-align:center;min-width:44px">%</th>
         </tr>
       </thead>
@@ -105,11 +102,9 @@
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#4338ca" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
             </span>
             {% elif day.cell_kind == 'absent' %}
-            <span style="display:inline-flex;width:22px;height:22px;border-radius:50%;background:#fef2f2;align-items:center;justify-content:center" title="Sababsiz kelmadi — to'lov yo'q">
+            <span style="display:inline-flex;width:22px;height:22px;border-radius:50%;background:#fef2f2;align-items:center;justify-content:center" title="Kelmadi">
               <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
             </span>
-            {% elif day.cell_kind == 'excused' %}
-            <span style="display:inline-flex;width:22px;height:22px;border-radius:50%;background:#fef3c7;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:#b45309" title="Sababli kelmadi — to'lov bor">U</span>
             {% else %}
             <span style="display:inline-flex;width:22px;height:22px;border-radius:50%;background:#f9fafb;align-items:center;justify-content:center" title="Belgilanmagan">
               <span style="width:6px;height:6px;border-radius:50%;background:#e5e7eb;display:block"></span>
@@ -120,9 +115,7 @@
           <td style="text-align:center;font-size:12px;font-weight:600;color:#374151">
             {{ row.present_count }}/{{ dates|length }}
           </td>
-          <td style="text-align:center;font-size:11px;font-weight:600;color:#d97706">{{ row.sababli_count }}</td>
           <td style="text-align:center;font-size:11px;font-weight:600;color:#b91c1c">{{ row.no_pay_absent_count }}</td>
-          <td style="text-align:center;font-size:11px;font-weight:600;color:#15803d">{{ row.billable_count }}</td>
           <td style="text-align:center">
             <span style="font-size:12px;font-weight:700;padding:3px 8px;border-radius:6px;background:{% if row.pct >= 80 %}#eef2ff{% elif row.pct >= 60 %}#fef3c7{% else %}#fee2e2{% endif %};color:{% if row.pct >= 80 %}#4338ca{% elif row.pct >= 60 %}#92400e{% else %}#b91c1c{% endif %}">
               {{ row.pct }}%

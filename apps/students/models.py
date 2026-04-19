@@ -69,14 +69,6 @@ class Attendance(models.Model):
     student         = models.ForeignKey(Student, on_delete=models.CASCADE, related_name='attendances')
     date            = models.DateField()
     is_present      = models.BooleanField(default=False)
-    excused_absence = models.BooleanField(
-        default=False,
-        verbose_name="Sababli kelmagan (ustoz tasdig'i)",
-        help_text=(
-            "Sababli: asosli sabab + ustoz roziligi — shu kun to'lov uchun hisoblanadi. "
-            "Sababsiz kelmagan kunlar uchun to'lov olinmaydi."
-        ),
-    )
     note            = models.CharField(max_length=200, blank=True)
 
     class Meta:
@@ -86,15 +78,5 @@ class Attendance(models.Model):
         ordering = ['-date']
 
     def __str__(self):
-        if self.is_present:
-            tag = 'keldi'
-        elif self.excused_absence:
-            tag = "kelmadi (sababli — to'lov bor)"
-        else:
-            tag = "kelmadi (sababsiz — to'lov yo'q)"
+        tag = 'keldi' if self.is_present else 'kelmadi'
         return f'{self.student} | {self.date} | {tag}'
-
-    @property
-    def counts_for_payment(self) -> bool:
-        """Kelgan yoki sababli kelmagan — to'lov asosidagi kun."""
-        return self.is_present or self.excused_absence

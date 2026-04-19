@@ -9,6 +9,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.views.decorators.http import require_POST
 from django.http import JsonResponse
+from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator
 from django.utils import timezone
 from .models import User
@@ -103,6 +104,28 @@ def account_settings(request):
 
     if request.method == 'POST':
         action = request.POST.get('action', 'profile')
+        if action == 'username':
+            username = (request.POST.get('username') or '').strip()
+            if not username:
+                messages.error(request, "Login bo'sh bo'lmasligi kerak.")
+            elif User.objects.exclude(pk=user.pk).filter(username=username).exists():
+                messages.error(request, "Bu login allaqachon band.")
+            else:
+                user.username = username
+                try:
+                    user.full_clean(exclude=['password'])
+                    user.save(update_fields=['username'])
+                except ValidationError as err:
+                    msgs = []
+                    for v in err.error_dict.values():
+                        msgs.extend(str(m) for m in v)
+                    messages.error(
+                        request,
+                        '; '.join(msgs) if msgs else "Login formati noto'g'ri.",
+                    )
+                else:
+                    messages.success(request, "Login yangilandi.")
+            return redirect('settings')
         if action == 'profile':
             fn = request.POST.get('first_name', '').strip()
             ln = request.POST.get('last_name', '').strip()
@@ -159,20 +182,33 @@ def dashboard_view(request):
 
     total_income = int(income_payments.aggregate(s=Sum('amount'))['s'] or 0)
 
-    today = timezone.localdate()
-    month_start = today.replace(day=1)
-    month_end = today.replace(day=calendar.monthrange(today.year, today.month)[1])
-    scope_students = Student.objects.filter(is_active=True) if user.is_admin else Student.objects.filter(group__in=groups, is_active=True)
-    scope_ids = list(scope_students.values_list('pk', flat=True))
-    paid_ids = set(
-        Payment.objects.filter(
-            payment_type=Payment.INCOME,
-            student_id__in=scope_ids,
-            created_at__date__gte=month_start,
-            created_at__date__lte=month_end,
-        ).values_list('student_id', flat=True).distinct()
+    from apps.students.month_fee import (
+        apply_month_fee_status,
+        current_calendar_month_bounds,
+        month_income_totals_by_student,
     )
-    debtors_count = max(0, len(scope_ids) - len(paid_ids))
+
+    month_start, month_end, today = current_calendar_month_bounds()
+    scope_students = (
+        Student.objects.filter(is_active=True).select_related('group')
+        if user.is_admin
+        else Student.objects.filter(group__in=groups, is_active=True).select_related('group')
+    )
+    scope_ids = list(scope_students.values_list('pk', flat=True))
+    paid_map = month_income_totals_by_student(scope_ids, month_start, month_end)
+    debtors_count = 0
+    partial_count = 0
+    planned_monthly_income = 0
+    planned_students_count = 0
+    for st in scope_students:
+        apply_month_fee_status(st, paid_map)
+        if st.group_id and st.group:
+            planned_monthly_income += int(st.group.price or 0)
+            planned_students_count += 1
+        if st.month_fee_status == 'partial':
+            partial_count += 1
+        if st.month_fee_expected > 0 and st.month_fee_paid < st.month_fee_expected:
+            debtors_count += 1
 
     recent_qs = Payment.objects.select_related('student').order_by('-created_at')
     if not user.is_admin:
@@ -186,12 +222,54 @@ def dashboard_view(request):
         'active_groups':   groups.count(),
         'total_income':    total_income,
         'debtors_count':   debtors_count,
+        'partial_count': partial_count,
+        'planned_monthly_income': planned_monthly_income,
+        'planned_students_count': planned_students_count,
         'status_month_label': f"{_MONTH_UZ[today.month]} {today.year}",
         'my_groups':       groups[:6],
         'recent_payments': recent_payments,
         'monthly_chart_json': monthly_chart_json,
     }
     return render(request, 'dashboard/index.html', ctx)
+
+
+@login_required
+def partial_payments_view(request):
+    from apps.students.models import Student
+    from apps.groups.models import Group
+    from apps.students.month_fee import (
+        apply_month_fee_status,
+        current_calendar_month_bounds,
+        month_income_totals_by_student,
+    )
+
+    user = request.user
+    groups = (
+        Group.objects.filter(is_active=True)
+        if user.is_admin
+        else Group.objects.filter(teacher=user, is_active=True)
+    )
+    students_qs = (
+        Student.objects.filter(is_active=True).select_related('group')
+        if user.is_admin
+        else Student.objects.filter(group__in=groups, is_active=True).select_related('group')
+    )
+    students = list(students_qs.order_by('last_name', 'first_name'))
+
+    month_start, month_end, today = current_calendar_month_bounds()
+    paid_map = month_income_totals_by_student([s.pk for s in students], month_start, month_end)
+
+    partial_students = []
+    for st in students:
+        apply_month_fee_status(st, paid_map)
+        if st.month_fee_status == 'partial':
+            partial_students.append(st)
+
+    ctx = {
+        'month_label': f"{_MONTH_UZ[today.month]} {today.year}",
+        'partial_students': partial_students,
+    }
+    return render(request, 'dashboard/partial_payments.html', ctx)
 
 
 @login_required
@@ -343,31 +421,28 @@ def teacher_detail(request, pk):
     # O'qituvchining guruhlari
     groups = Group.objects.filter(teacher=teacher).select_related('course', 'room').prefetch_related('students')
 
-    today = timezone.localdate()
-    month_start = today.replace(day=1)
-    month_end = today.replace(day=calendar.monthrange(today.year, today.month)[1])
+    from apps.students.month_fee import (
+        apply_month_fee_status,
+        current_calendar_month_bounds,
+        month_income_totals_by_student,
+    )
+
+    month_start, month_end, today = current_calendar_month_bounds()
 
     all_students = list(
         Student.objects.filter(group__teacher=teacher, is_active=True)
         .select_related('group')
         .order_by('last_name', 'first_name')
     )
-    paid_this_month_rows = (
-        Payment.objects.filter(
-            payment_type='income',
-            student__in=all_students,
-            created_at__date__gte=month_start,
-            created_at__date__lte=month_end,
-        )
-        .values('student_id')
-        .annotate(total=Sum('amount'))
-    )
-    paid_this_month_ids = {row['student_id'] for row in paid_this_month_rows if int(row['total'] or 0) > 0}
+    paid_map = month_income_totals_by_student([st.pk for st in all_students], month_start, month_end)
     for st in all_students:
-        st.paid_this_month = st.pk in paid_this_month_ids
-    paid_students = [st for st in all_students if st.paid_this_month]
+        apply_month_fee_status(st, paid_map)
+    expected_month_total = sum(int(getattr(st, 'month_fee_expected', 0) or 0) for st in all_students)
+    paid_students = [
+        st for st in all_students if st.month_fee_status == 'full' or (st.month_fee_status == 'na' and st.month_fee_paid > 0)
+    ]
     paid_students_count = len(paid_students)
-    unpaid_students = [st for st in all_students if not st.paid_this_month]
+    unpaid_students = [st for st in all_students if st.month_fee_status in ('none', 'partial')]
 
     # Har bir guruh uchun statistika
     group_stats = []
@@ -377,8 +452,8 @@ def teacher_detail(request, pk):
     for g in groups:
         students = [st for st in all_students if st.group_id == g.pk]
         sc = len(students)
-        paid_count = sum(1 for st in students if st.paid_this_month)
-        unpaid_count = sc - paid_count
+        paid_count = sum(1 for st in students if st.month_fee_status == 'full')
+        unpaid_count = sum(1 for st in students if st.month_fee_status in ('none', 'partial'))
         # Guruh bo'yicha to'lovlar
         revenue = int(
             Payment.objects.filter(
@@ -406,15 +481,93 @@ def teacher_detail(request, pk):
         'total_revenue':  total_revenue,
         'total_students': total_students,
         'paid_students_count': paid_students_count,
-        'unpaid_students_count': total_students - paid_students_count,
+        'unpaid_students_count': len(unpaid_students),
         'paid_students': paid_students,
         'unpaid_students': unpaid_students,
         'month_label': f"{_MONTH_UZ[today.month]} {today.year}",
+        'current_month_value': f'{month_start.year}-{month_start.month:02d}',
+        'expected_month_total': expected_month_total,
         'att_pct':        att_pct,
         'groups_count':   groups.count(),
         'all_students': all_students,
     }
     return render(request, 'teachers/detail.html', ctx)
+
+
+@login_required
+def teacher_month_expectation(request, pk):
+    """O'qituvchi: tanlangan oy uchun kutilayotgan oylik (guruh narxi) va talaba bo'yicha."""
+    from apps.groups.models import Group
+    from apps.students.models import Student
+    from apps.students.month_fee import (
+        apply_month_fee_status,
+        current_calendar_month_bounds,
+        month_bounds_for_calendar_month,
+        month_income_totals_by_student,
+    )
+
+    teacher = get_object_or_404(User, pk=pk, role=User.TEACHER)
+    if not request.user.is_admin and request.user.pk != teacher.pk:
+        messages.error(request, "Faqat o'zingizga tegishli profilni ko'ra olasiz.")
+        return redirect('dashboard')
+
+    month_raw = (request.GET.get('month') or '').strip()
+    month_start, month_end, _today = current_calendar_month_bounds()
+    if month_raw and len(month_raw) >= 7:
+        try:
+            y = int(month_raw[:4])
+            m = int(month_raw[5:7])
+            if 1 <= m <= 12 and 1900 <= y <= 2100:
+                month_start, month_end = month_bounds_for_calendar_month(y, m)
+        except (ValueError, TypeError):
+            pass
+
+    all_students = list(
+        Student.objects.filter(group__teacher=teacher, is_active=True)
+        .select_related('group')
+        .order_by('last_name', 'first_name')
+    )
+    paid_map = month_income_totals_by_student([st.pk for st in all_students], month_start, month_end)
+    for st in all_students:
+        apply_month_fee_status(st, paid_map)
+
+    expected_total = sum(int(getattr(st, 'month_fee_expected', 0) or 0) for st in all_students)
+    paid_total = sum(int(getattr(st, 'month_fee_paid', 0) or 0) for st in all_students)
+    remaining_total = max(0, expected_total - paid_total)
+
+    groups = Group.objects.filter(teacher=teacher).select_related('course')
+    group_rows = []
+    for g in groups:
+        sts = [st for st in all_students if st.group_id == g.pk]
+        exp = sum(int(getattr(st, 'month_fee_expected', 0) or 0) for st in sts)
+        paid_g = sum(int(getattr(st, 'month_fee_paid', 0) or 0) for st in sts)
+        group_rows.append(
+            {
+                'group': g,
+                'student_count': len(sts),
+                'expected': exp,
+                'paid': paid_g,
+                'remaining': max(0, exp - paid_g),
+            }
+        )
+    group_rows.sort(key=lambda r: r['group'].name or '')
+
+    month_label = f"{_MONTH_UZ[month_start.month]} {month_start.year}"
+    month_input = f'{month_start.year}-{month_start.month:02d}'
+
+    ctx = {
+        'teacher': teacher,
+        'month_label': month_label,
+        'month_input': month_input,
+        'month_start': month_start,
+        'month_end': month_end,
+        'all_students': all_students,
+        'expected_total': expected_total,
+        'paid_total': paid_total,
+        'remaining_total': remaining_total,
+        'group_rows': group_rows,
+    }
+    return render(request, 'teachers/month_expectation.html', ctx)
 
 
 @login_required

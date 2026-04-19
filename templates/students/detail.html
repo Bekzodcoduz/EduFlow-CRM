@@ -38,6 +38,10 @@
           {% if student.balance < 0 %}Qarzdorlik{% else %}Balans{% endif %}
         </div>
       </div>
+      <a href="{% url 'student-edit' student.pk %}" class="btn btn-outline btn-sm" style="display:inline-flex;align-items:center;gap:6px;text-decoration:none" title="Ma'lumotlarni tahrirlash">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7 21l-4 1 1-4L17 3z"/></svg>
+        Tahrirlash
+      </a>
       <button class="btn btn-primary btn-sm" onclick="openModal('modal-payment')">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         To'lov qo'shish
@@ -47,7 +51,7 @@
 </div>
 
 <!-- KPI -->
-<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:24px">
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:24px">
   <div class="stat-card">
     <div class="sc-icon" style="background:#ecfdf5"><svg viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
     <div class="sc-label">Jami to'lagan</div>
@@ -66,6 +70,24 @@
     <div class="sc-value" style="font-size:18px">{{ total_discount|floatformat:0 }}<small style="font-size:11px;color:#9ca3af"> so'm</small></div>
     <div class="sc-trend trend-ne">{{ total_refund|floatformat:0 }} qaytarildi</div>
   </div>
+  <div class="stat-card">
+    <div class="sc-icon" style="background:{% if month_fee_status == 'full' %}#ecfdf5{% elif month_fee_status == 'partial' %}#fef3c7{% elif month_fee_status == 'none' %}#fef2f2{% else %}#f3f4f6{% endif %}">
+      <svg viewBox="0 0 24 24" fill="none" stroke="{% if month_fee_status == 'full' %}#10b981{% elif month_fee_status == 'partial' %}#d97706{% elif month_fee_status == 'none' %}#ef4444{% else %}#9ca3af{% endif %}" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+    </div>
+    <div class="sc-label">Bu oy oylik (joriy oy)</div>
+    {% if month_fee_status == 'na' %}
+    <div class="sc-value" style="font-size:15px;color:#6b7280">Guruh yo'q</div>
+    <div class="sc-trend trend-ne">Oylik reja aniqlanmagan</div>
+    {% else %}
+    <div class="sc-value" style="font-size:16px;font-weight:700;color:{% if month_fee_status == 'full' %}#15803d{% elif month_fee_status == 'partial' %}#b45309{% else %}#b91c1c{% endif %}">
+      {% if month_fee_status == 'full' %}To'liq to'langan{% elif month_fee_status == 'partial' %}Qisman{% else %}To'lanmagan{% endif %}
+    </div>
+    <div class="sc-trend trend-ne" style="line-height:1.5">
+      Reja: <strong>{{ month_fee_expected|floatformat:0 }}</strong> · To'langan: <strong>{{ month_fee_paid|floatformat:0 }}</strong>
+      {% if month_fee_remaining %}<br>Qoldiq: <strong style="color:#b91c1c">{{ month_fee_remaining|floatformat:0 }}</strong> so'm{% endif %}
+    </div>
+    {% endif %}
+  </div>
 </div>
 
 <!-- SHAXSIY MA'LUMOTLAR -->
@@ -73,8 +95,12 @@
 
   <!-- SHAXSIY -->
   <div class="card card-pad">
-    <div style="font-size:14px;font-weight:700;color:#4338ca;margin-bottom:14px;padding-bottom:10px;border-bottom:2px solid #eef2ff">
-      Shaxsiy ma'lumotlar
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:14px;font-weight:700;color:#4338ca;margin-bottom:14px;padding-bottom:10px;border-bottom:2px solid #eef2ff">
+      <span>Shaxsiy ma'lumotlar</span>
+      <a href="{% url 'student-edit' student.pk %}" class="btn-icon-pencil" title="Barcha ma'lumotlarni tahrirlash">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 3a2.828 2.828 0 1 1 4 4L7 21l-4 1 1-4L17 3z"/></svg>
+        <span class="sr-only">Tahrirlash</span>
+      </a>
     </div>
     <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f3f4f6;font-size:13px"><span style="color:#6b7280">Ism Familiya</span><span style="font-weight:600">{{ student.full_name }}</span></div>
     <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f3f4f6;font-size:13px"><span style="color:#6b7280">Telefon</span><span style="font-weight:500;font-family:monospace">{{ student.phone|default:"—" }}</span></div>
@@ -97,7 +123,7 @@
     </div>
     {% endif %}
 
-    <div style="margin-top:16px;padding-top:14px;border-top:2px solid #eef2ff">
+    <div id="talaba-kontakt" style="margin-top:16px;padding-top:14px;border-top:2px solid #eef2ff">
       <div style="font-size:12px;font-weight:700;color:#4338ca;margin-bottom:10px">Telefon va SMS (talaba + ota yoki ona)</div>
       <form method="post" action="{% url 'student-update-contact' student.pk %}">
         {% csrf_token %}
@@ -129,11 +155,12 @@
   <div class="table-wrap">
     <table>
       <thead>
-        <tr><th>Sana</th><th>Fan</th><th>Yo'nalish/Guruh</th><th>To'lov usuli</th><th>Tur</th><th style="text-align:right">Summa</th><th>Izoh</th><th>Qabul qildi</th><th>Amal</th></tr>
+        <tr><th>#</th><th>Sana</th><th>Fan</th><th>Yo'nalish/Guruh</th><th>To'lov usuli</th><th>Tur</th><th style="text-align:right">Summa</th><th>Izoh</th><th>Qabul qildi</th></tr>
       </thead>
       <tbody>
         {% for p in all_payments %}
         <tr>
+          <td style="color:#9ca3af;font-size:12px">{{ forloop.counter }}</td>
           <td style="color:#6b7280;font-size:12px;white-space:nowrap">{{ p.created_at|date:"d.m.Y H:i" }}</td>
           <td style="font-size:12px;color:#374151;font-weight:500">{{ p.course.name|default:"—" }}</td>
           <td style="font-size:12px;color:#374151">{{ p.group.name|default:student.group.name|default:"—" }}</td>
@@ -149,12 +176,6 @@
           </td>
           <td style="font-size:12px;color:#6b7280">{{ p.note|default:"—" }}</td>
           <td style="font-size:12px;color:#6b7280">{{ p.received_by|default:"—" }}</td>
-          <td>
-            <form method="post" action="{% url 'payment-delete' p.pk %}" style="display:inline" onsubmit="return confirm('O\'chirilsinmi?')">
-              {% csrf_token %}
-              <button type="submit" class="btn-icon">🗑</button>
-            </form>
-          </td>
         </tr>
         {% empty %}
         <tr><td colspan="9" style="text-align:center;padding:32px;color:#9ca3af">To'lovlar yo'q</td></tr>

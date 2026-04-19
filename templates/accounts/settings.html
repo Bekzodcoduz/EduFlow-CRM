@@ -5,34 +5,51 @@
 <div class="page-head">
   <div>
     <div class="page-title">Akkaunt sozlamalari</div>
-    <div class="page-sub">Parolni yangilash.</div>
+    <div class="page-sub">Login va parolni boshqarish.</div>
   </div>
 </div>
 
-<div class="card card-pad" style="max-width:720px">
-    <div style="font-size:14px;font-weight:700;color:#4338ca;margin-bottom:14px;padding-bottom:10px;border-bottom:2px solid #eef2ff">
-      Parolni yangilash
+<div class="card card-pad settings-account-card" style="max-width:720px">
+  <div class="settings-section-title">Login</div>
+  <form method="post" class="settings-form">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="username">
+    <div class="form-group">
+      <label>Login (username)</label>
+      <input type="text" name="username" value="{{ user.username }}" required maxlength="150" autocomplete="username" inputmode="text">
     </div>
-    {% if can_change_password %}
-    <form method="post">
-      {% csrf_token %}
-      <input type="hidden" name="action" value="password">
-      <div class="form-group">
-        <label>Joriy parol</label>
-        <input type="password" name="old_password" required>
-      </div>
-      <div class="form-group">
-        <label>Yangi parol</label>
-        <input type="password" name="new_password1" required>
-      </div>
-      <div class="form-group">
-        <label>Yangi parolni tasdiqlang</label>
-        <input type="password" name="new_password2" required>
-      </div>
+    <div class="settings-submit-wrap">
+      <button type="submit" class="btn btn-outline">Loginni saqlash</button>
+    </div>
+  </form>
+
+  {% if can_change_password %}
+  <div class="settings-section-title" style="margin-top:28px;padding-top:22px;border-top:1px solid var(--bd,#e5e7eb)">
+    Parolni yangilash
+  </div>
+  <form method="post" class="settings-form">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="password">
+    <div class="form-group">
+      <label>Joriy parol</label>
+      <input type="password" name="old_password" required autocomplete="current-password">
+    </div>
+    <div class="form-group">
+      <label>Yangi parol</label>
+      <input type="password" name="new_password1" required autocomplete="new-password">
+    </div>
+    <div class="form-group">
+      <label>Yangi parolni tasdiqlang</label>
+      <input type="password" name="new_password2" required autocomplete="new-password">
+    </div>
+    <div class="settings-submit-wrap">
       <button type="submit" class="btn btn-primary">Parolni yangilash</button>
-    </form>
-    {% else %}
-    <div style="font-size:13px;color:#6b7280">Bu akkaunt uchun parol o'rnatilmagan.</div>
-    {% endif %}
+    </div>
+  </form>
+  {% else %}
+  <div style="margin-top:24px;padding-top:20px;border-top:1px solid var(--bd,#e5e7eb);font-size:13px;color:#6b7280">
+    Bu akkaunt uchun parol o'rnatilmagan.
+  </div>
+  {% endif %}
 </div>
 {% endblock %}

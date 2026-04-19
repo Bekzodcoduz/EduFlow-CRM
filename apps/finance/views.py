@@ -11,6 +11,11 @@ from django.db.models import Count, Q, Sum
 from .models import Payment
 from apps.groups.models import Group, Course
 from apps.students.models import Attendance, Student
+from apps.students.month_fee import (
+    apply_month_fee_status,
+    current_calendar_month_bounds,
+    month_income_totals_by_student,
+)
 
 
 def _ensure_admin(request):
@@ -39,20 +44,22 @@ def finance_list(request):
     total_income   = int(payments.filter(payment_type='income').aggregate(s=Sum('amount'))['s'] or 0)
     total_refund   = int(payments.filter(payment_type='refund').aggregate(s=Sum('amount'))['s'] or 0)
     total_discount = int(payments.filter(payment_type='discount').aggregate(s=Sum('amount'))['s'] or 0)
-    today = date.today()
-    month_start = today.replace(day=1)
-    month_end = today.replace(day=calendar.monthrange(today.year, today.month)[1])
-    all_active_students = Student.objects.filter(is_active=True).select_related('group')
-    paid_student_ids = set(
-        Payment.objects.filter(
-            payment_type=Payment.INCOME,
-            student__is_active=True,
-            created_at__date__gte=month_start,
-            created_at__date__lte=month_end,
-        ).values_list('student_id', flat=True).distinct()
+    month_start, month_end, today_bd = current_calendar_month_bounds()
+    all_active_students = list(
+        Student.objects.filter(is_active=True).select_related('group').order_by('last_name', 'first_name')
     )
-    debtors = all_active_students.exclude(pk__in=paid_student_ids)
-    debtors_total = debtors.count()
+    paid_map = month_income_totals_by_student([s.pk for s in all_active_students], month_start, month_end)
+    debtors = []
+    planned_monthly_income = 0
+    planned_students_count = 0
+    for s in all_active_students:
+        apply_month_fee_status(s, paid_map)
+        if s.group_id and s.group:
+            planned_monthly_income += int(s.group.price or 0)
+            planned_students_count += 1
+        if s.month_fee_status in ('none', 'partial'):
+            debtors.append(s)
+    debtors_total = len(debtors)
 
     from django.db.models.functions import TruncMonth
     monthly = (Payment.objects
@@ -72,7 +79,9 @@ def finance_list(request):
         'total_discount':total_discount,
         'debtors':       debtors,
         'debtors_total': debtors_total,
-        'status_month_label': f'{today.month:02d}.{today.year}',
+        'planned_monthly_income': planned_monthly_income,
+        'planned_students_count': planned_students_count,
+        'status_month_label': f'{today_bd.month:02d}.{today_bd.year}',
         'students':      Student.objects.filter(is_active=True).select_related('group', 'group__course').order_by(
             'last_name', 'first_name'
         ),
@@ -147,18 +156,6 @@ def payment_create(request):
     return redirect('finance')
 
 
-@login_required
-@require_POST
-def payment_delete(request, pk):
-    admin_redirect = _ensure_admin(request)
-    if admin_redirect:
-        return admin_redirect
-
-    get_object_or_404(Payment, pk=pk).delete()
-    messages.success(request, "O'chirildi!")
-    return redirect('finance')
-
-
 def _payment_export_queryset(student_pk: str | None, group_pk: str | None):
     """To'lovlar: ixtiyoriy guruh va/yoki talaba filtri."""
     qs = Payment.objects.select_related('student__group', 'received_by', 'course', 'group').order_by('-created_at')
@@ -191,14 +188,7 @@ def _annotated_students_export_qs():
         .annotate(
             att_n=Count('attendances'),
             att_ok=Count('attendances', filter=Q(attendances__is_present=True)),
-            att_ex=Count(
-                'attendances',
-                filter=Q(attendances__is_present=False, attendances__excused_absence=True),
-            ),
-            att_nopay=Count(
-                'attendances',
-                filter=Q(attendances__is_present=False, attendances__excused_absence=False),
-            ),
+            att_absent=Count('attendances', filter=Q(attendances__is_present=False)),
         )
         .order_by('last_name', 'first_name')
     )
@@ -209,9 +199,7 @@ def _attendance_summary_rows_for_students_qs(students_qs):
     for s in students_qs:
         n = s.att_n
         ok = s.att_ok
-        ex = s.att_ex
-        nopay = s.att_nopay
-        billable = ok + ex
+        absent = s.att_absent
         pct = round(ok / n * 100) if n else 0
         out.append(
             [
@@ -220,9 +208,7 @@ def _attendance_summary_rows_for_students_qs(students_qs):
                 s.group.name if s.group else '-',
                 n,
                 ok,
-                ex,
-                nopay,
-                billable,
+                absent,
                 f'{pct}%',
             ]
         )
@@ -298,30 +284,22 @@ def _append_xlsx_payment_totals(ws, row: int, qs, last_col: int, grid) -> int:
     return r
 
 
-def _attendance_holat_tolov(a: Attendance) -> tuple[str, str]:
-    if a.is_present:
-        return 'Keldi', "Ha"
-    if a.excused_absence:
-        return 'Sababli kelmadi', "Ha"
-    return 'Sababsiz kelmadi', "Yo'q"
+def _attendance_holat(a: Attendance) -> str:
+    return 'Keldi' if a.is_present else 'Kelmadi'
 
 
 def _one_student_attendance_bundle(student: Student):
-    """
-    Bitta talaba: jami yozuvlar, kelgan, sababli / sababsiz kelmagan, to'lov kunlari, foiz.
-    """
+    """Bitta talaba: jami yozuvlar, kelgan, kelmagan, foiz."""
     recs = list(Attendance.objects.filter(student=student).order_by('-date'))
     n = len(recs)
     ok = sum(1 for a in recs if a.is_present)
-    excused = sum(1 for a in recs if (not a.is_present) and a.excused_absence)
-    no_pay = sum(1 for a in recs if (not a.is_present) and (not a.excused_absence))
-    billable = ok + excused
+    absent = n - ok
     pct = round(ok / n * 100) if n else 0
     detail = []
     for a in recs:
-        holat, pay = _attendance_holat_tolov(a)
-        detail.append([a.date.strftime('%d.%m.%Y'), holat, pay, a.note or '-'])
-    return n, ok, excused, no_pay, billable, pct, detail
+        holat = _attendance_holat(a)
+        detail.append([a.date.strftime('%d.%m.%Y'), holat, a.note or '-'])
+    return n, ok, absent, pct, detail
 
 
 def _all_attendance_detail_rows(one_student: Student | None = None, export_group: Group | None = None):
@@ -336,7 +314,7 @@ def _all_attendance_detail_rows(one_student: Student | None = None, export_group
         qs = qs.filter(student__group=export_group)
     for a in qs:
         s = a.student
-        holat, pay = _attendance_holat_tolov(a)
+        holat = _attendance_holat(a)
         rows.append(
             [
                 str(s),
@@ -344,7 +322,6 @@ def _all_attendance_detail_rows(one_student: Student | None = None, export_group
                 s.group.name if s.group else '-',
                 a.date.strftime('%d.%m.%Y'),
                 holat,
-                pay,
                 a.note or '-',
             ]
         )
@@ -356,15 +333,13 @@ def _export_attendance_csv_section(w, one_student, export_group):
     w.writerow([])
     w.writerow(["Yo'qlama / davomat"])
     if one_student:
-        n, ok, excused, no_pay, billable, pct, detail = _one_student_attendance_bundle(one_student)
+        n, ok, absent, pct, detail = _one_student_attendance_bundle(one_student)
         w.writerow(['Jami belgilangan kunlar (tizimdagi yozuvlar)', n])
         w.writerow(['Shundan kelgan', ok])
-        w.writerow(["Sababli kelmagan (to'lov bor)", excused])
-        w.writerow(["Sababsiz kelmagan (to'lov yo'q)", no_pay])
-        w.writerow(["To'lov asosidagi kunlar (keldi + sababli)", billable])
+        w.writerow(['Shundan kelmagan', absent])
         w.writerow(['Kelish foizi (%)', pct])
         w.writerow([])
-        w.writerow(['Sana', 'Holat', "To'lov (Ha/Yo'q)", 'Izoh'])
+        w.writerow(['Sana', 'Holat', 'Izoh'])
         for drow in detail:
             w.writerow(drow)
         if not detail:
@@ -382,9 +357,7 @@ def _export_attendance_csv_section(w, one_student, export_group):
             'Guruh',
             'Jami',
             'Keldi',
-            'Sababli kelmadi',
-            'Sababsiz kelmadi',
-            "To'lov kunlari",
+            'Kelmadi',
             'Foiz',
         ]
     )
@@ -394,8 +367,8 @@ def _export_attendance_csv_section(w, one_student, export_group):
         r[1] = f'\t{r[1]}'
         w.writerow(r)
     w.writerow([])
-    w.writerow(['Batafsil (sana + sababli/sababsiz + to‘lov)'])
-    w.writerow(['Talaba', 'Telefon', 'Guruh', 'Sana', 'Holat', "To'lov", 'Izoh'])
+    w.writerow(['Batafsil (sana + holat)'])
+    w.writerow(['Talaba', 'Telefon', 'Guruh', 'Sana', 'Holat', 'Izoh'])
     detail_all = _all_attendance_detail_rows(one_student, export_group)
     for row in detail_all:
         r = list(row)
@@ -413,7 +386,7 @@ def _write_davomat_sheet(wb, one_student, export_group):
     ws = wb.create_sheet(title="Yo'qlama")
 
     if one_student:
-        last_col = 4
+        last_col = 3
         r = 1
         ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=last_col)
         tc = ws.cell(row=r, column=1, value=f"Yo'qlama / davomat: {one_student}")
@@ -422,13 +395,11 @@ def _write_davomat_sheet(wb, one_student, export_group):
         ws.row_dimensions[r].height = 22
         r += 2
 
-        n, ok, excused, no_pay, billable, pct, detail = _one_student_attendance_bundle(one_student)
+        n, ok, absent, pct, detail = _one_student_attendance_bundle(one_student)
         for label, val in [
             ('Jami belgilangan kunlar (tizimdagi yozuvlar)', n),
             ('Shundan kelgan', ok),
-            ("Sababli kelmagan (to'lov bor)", excused),
-            ("Sababsiz kelmagan (to'lov yo'q)", no_pay),
-            ("To'lov asosidagi kunlar (keldi + sababli)", billable),
+            ('Shundan kelmagan', absent),
             ('Kelish foizi (%)', pct),
         ]:
             ws.cell(row=r, column=1, value=label)
@@ -436,7 +407,7 @@ def _write_davomat_sheet(wb, one_student, export_group):
             r += 1
         r += 1
 
-        hdrs = ['Sana', 'Holat', "To'lov (Ha/Yo'q)", 'Izoh']
+        hdrs = ['Sana', 'Holat', 'Izoh']
         for c, h in enumerate(hdrs, 1):
             cell = ws.cell(row=r, column=c, value=h)
             cell.font = Font(bold=True)
@@ -455,7 +426,7 @@ def _write_davomat_sheet(wb, one_student, export_group):
         _xlsx_autofit_columns(ws, last_col)
         return
 
-    last_col = 9
+    last_col = 7
     r = 1
     ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=last_col)
     _dav_title = "Yo'qlama / davomat — barcha talabalar (xulosa)"
@@ -471,8 +442,8 @@ def _write_davomat_sheet(wb, one_student, export_group):
         row=r,
         column=1,
         value=(
-            'Xulosa: keldi, sababli kelmadi, sababsiz kelmadi, to‘lov kunlari. '
-            'Pastda sana bilan batafsil — «Holat» da sababli yoki sababsiz yoziladi.'
+            'Xulosa: keldi va kelmagan kunlar. '
+            'Pastda har bir sana uchun «Keldi» yoki «Kelmadi» ko‘rsatiladi.'
         ),
     )
     hint.font = Font(italic=True, size=10, color='64748B')
@@ -485,9 +456,7 @@ def _write_davomat_sheet(wb, one_student, export_group):
         'Guruh',
         'Jami',
         'Keldi',
-        'Sababli kelmadi',
-        'Sababsiz kelmadi',
-        "To'lov kunlari",
+        'Kelmadi',
         'Foiz',
     ]
     for c, h in enumerate(hdrs, 1):
@@ -511,7 +480,7 @@ def _write_davomat_sheet(wb, one_student, export_group):
     sub = ws.cell(
         row=r,
         column=1,
-        value='Batafsil: har bir sana — holat (sababli / sababsiz) va to‘lov',
+        value='Batafsil: har bir sana — holat (Keldi / Kelmadi)',
     )
     sub.font = Font(bold=True, size=12)
     sub.alignment = Alignment(horizontal='center', vertical='center')
@@ -526,7 +495,7 @@ def _write_davomat_sheet(wb, one_student, export_group):
     ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=last_col)
     r += 2
 
-    hdrs_detail = ['Talaba', 'Telefon', 'Guruh', 'Sana', 'Holat', "To'lov", 'Izoh']
+    hdrs_detail = ['Talaba', 'Telefon', 'Guruh', 'Sana', 'Holat', 'Izoh']
     for c, h in enumerate(hdrs_detail, 1):
         cell = ws.cell(row=r, column=c, value=h)
         cell.font = Font(bold=True)
@@ -623,7 +592,7 @@ def _metrics_period_block(students_qs, start: date, end: date, payment_group: Gr
             'payments_n': 0,
             'att_n': 0,
             'att_present': 0,
-            'att_billable': 0,
+            'att_absent': 0,
             'att_pct': 0,
             'debtors': 0,
         }
@@ -642,9 +611,7 @@ def _metrics_period_block(students_qs, start: date, end: date, payment_group: Gr
     att = Attendance.objects.filter(student_id__in=pks, date__gte=start, date__lte=end)
     att_n = att.count()
     att_present = att.filter(is_present=True).count()
-    att_billable = att.filter(
-        Q(is_present=True) | Q(is_present=False, excused_absence=True)
-    ).count()
+    att_absent = att.filter(is_present=False).count()
     att_pct = round(att_present / att_n * 100) if att_n else 0
     debtors = students_qs.filter(balance__lt=0).count()
     return {
@@ -653,7 +620,7 @@ def _metrics_period_block(students_qs, start: date, end: date, payment_group: Gr
         'payments_n': payments_n,
         'att_n': att_n,
         'att_present': att_present,
-        'att_billable': att_billable,
+        'att_absent': att_absent,
         'att_pct': att_pct,
         'debtors': debtors,
     }
@@ -846,7 +813,7 @@ def _attendance_rows_period(students_qs, start: date, end: date):
     rows = []
     for a in qs:
         s = a.student
-        holat, pay = _attendance_holat_tolov(a)
+        holat = _attendance_holat(a)
         rows.append(
             [
                 str(s),
@@ -854,7 +821,6 @@ def _attendance_rows_period(students_qs, start: date, end: date):
                 s.group.name if s.group else '-',
                 a.date.strftime('%d.%m.%Y'),
                 holat,
-                pay,
                 a.note or '-',
             ]
         )
@@ -898,7 +864,7 @@ def _build_period_xlsx_response(
         ('Barcha to‘lov yozuvlari (davr)', metrics['payments_n']),
         ('Davomat yozuvlari (davr)', metrics['att_n']),
         ('Shundan «keldi»', metrics['att_present']),
-        ("To'lov kuni (keldi + sababli)", metrics['att_billable']),
+        ('Shundan «kelmadi»', metrics['att_absent']),
         ('Keldi % (yozuvlar bo‘yicha)', f"{metrics['att_pct']}%"),
         ('Qarzdorlar (joriy balans < 0)', metrics['debtors']),
     ]
@@ -948,11 +914,11 @@ def _build_period_xlsx_response(
 
     ws2 = wb.create_sheet(title="Davomat")
     rr = 1
-    ws2.merge_cells(start_row=rr, start_column=1, end_row=rr, end_column=7)
+    ws2.merge_cells(start_row=rr, start_column=1, end_row=rr, end_column=6)
     tc2 = ws2.cell(row=rr, column=1, value=f"Davomat batafsil — {period_range_label}")
     tc2.font = Font(bold=True, size=12)
     rr += 2
-    hdrs2 = ['Talaba', 'Telefon', 'Guruh', 'Sana', 'Holat', "To'lov", 'Izoh']
+    hdrs2 = ['Talaba', 'Telefon', 'Guruh', 'Sana', 'Holat', 'Izoh']
     for c, h in enumerate(hdrs2, 1):
         cell = ws2.cell(row=rr, column=c, value=h)
         cell.font = Font(bold=True)
@@ -970,7 +936,7 @@ def _build_period_xlsx_response(
     if not detail:
         ws2.cell(row=rr, column=1, value="Tanlangan davrda davomat yozuvi yo‘q.")
         rr += 1
-    _xlsx_autofit_columns(ws2, 7)
+    _xlsx_autofit_columns(ws2, 6)
 
     bio = BytesIO()
     wb.save(bio)
@@ -1198,7 +1164,7 @@ def _export_payments_xlsx(qs, one_student, export_group):
     note = ws.cell(
         row=r,
         column=1,
-        value="Yo'qlama: alohida varaqda sababli / sababsiz kelmagan kunlar va to'lov (Ha/Yo'q).",
+        value="Yo'qlama: alohida varaqda har bir kun uchun Keldi / Kelmadi.",
     )
     note.font = Font(italic=True, size=10, color='64748B')
     note.alignment = Alignment(wrap_text=True, vertical='center')

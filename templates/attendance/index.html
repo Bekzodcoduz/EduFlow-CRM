@@ -11,11 +11,11 @@
   </div>
   {% if selected_group %}
   <div style="display:flex;gap:8px">
-    <button class="btn btn-outline" onclick="markAllGroup(false)">
+    <button type="button" class="btn btn-outline" onclick="markAllGroup(false)" {% if not today_is_class_day %}disabled title="Bugun bu guruh jadvalida dars kuni emas"{% endif %}>
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-      Hamma sababsiz kelmadi
+      Hamma kelmadi
     </button>
-    <button class="btn btn-primary" onclick="markAllGroup(true)">
+    <button type="button" class="btn btn-primary" onclick="markAllGroup(true)" {% if not today_is_class_day %}disabled title="Bugun bu guruh jadvalida dars kuni emas"{% endif %}>
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
       Hamma keldi
     </button>
@@ -26,6 +26,18 @@
 <!-- FILTER ROW -->
 <div style="display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap;align-items:flex-end">
   <form method="get" id="filter-form" style="display:flex;gap:10px;flex-wrap:wrap;flex:1">
+    <div style="flex:1;min-width:220px">
+      <label style="display:block;font-size:11px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px">Fan</label>
+      <select name="course" class="filter-btn" onchange="document.getElementById('filter-form').submit()"
+        style="width:100%;padding:9px 14px;border-radius:9px;font-size:13px;color:#111827;appearance:none;background:#fff;border:1px solid #e5e7eb">
+        <option value="">— Fan tanlang —</option>
+        {% for g in course_options %}
+        <option value="{{ g.course_id }}" {% if selected_course_id == g.course_id|stringformat:"s" %}selected{% endif %}>
+          {{ g.course.name }}
+        </option>
+        {% endfor %}
+      </select>
+    </div>
     <div style="flex:1;min-width:200px">
       <label style="display:block;font-size:11px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px">Guruh</label>
       <select name="group" class="filter-btn" onchange="document.getElementById('filter-form').submit()"
@@ -83,22 +95,9 @@
     <div class="sc-icon" style="background:#fef2f2;width:36px;height:36px;margin-bottom:8px">
       <svg viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" style="width:18px;height:18px"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
     </div>
-    <div class="sc-label">Sababsiz kelmadi</div>
-    <div style="font-size:11px;color:#9ca3af;margin-top:2px">Qizil X — to'lov yo'q</div>
+    <div class="sc-label">Kelmadi</div>
+    <div style="font-size:11px;color:#9ca3af;margin-top:2px">Kelmagan belgilar (oy bo‘yicha)</div>
     <div class="sc-value" style="color:#ef4444" id="stat-nopay">{{ group_stats.total_no_pay_absent }}</div>
-  </div>
-  <div class="stat-card">
-    <div class="sc-icon" style="background:#fffbeb;width:36px;height:36px;margin-bottom:8px">
-      <span style="font-size:14px;font-weight:800;color:#b45309">U</span>
-    </div>
-    <div class="sc-label">Sababli kelmadi</div>
-    <div style="font-size:11px;color:#9ca3af;margin-top:2px">Ustoz tasdig'i — to'lov bor</div>
-    <div class="sc-value" style="color:#d97706" id="stat-excused">{{ group_stats.total_excused }}</div>
-  </div>
-  <div class="stat-card">
-    <div class="sc-label">To'lov asosidagi kunlar</div>
-    <div style="font-size:11px;color:#9ca3af;margin-top:2px">Keldi + sababli kelmadi</div>
-    <div class="sc-value" style="color:#4338ca" id="stat-billable">{{ group_stats.total_billable }}</div>
   </div>
   <div class="stat-card">
     <div class="sc-label">Umumiy davomat %</div>
@@ -109,9 +108,7 @@
   </div>
 </div>
 <div class="card card-pad" style="margin-bottom:16px;padding:12px 16px;font-size:12px;color:#475569;line-height:1.5">
-  <strong style="color:#3730a3">Keldi / kelmadi:</strong> tugma orqali almashtirasiz.
-  <strong>Sababli</strong> — faqat <strong>kelmadi</strong> bo‘lganda belgilanadi (to‘lov uchun hisoblanadi).
-  <strong>Sababsiz</strong> kelmagan — belgi qo‘ymasdan qoladi (to‘lov yo‘q).
+  <strong style="color:#3730a3">Keldi / kelmadi:</strong> har bir dars kuni uchun tugma orqali belgilanadi — ko‘k belgi keldi, qizil X kelmadi.
 </div>
 
 <!-- KO'K HEADER -->
@@ -132,13 +129,13 @@
     </div>
   </div>
   <div class="dav-btns">
-    <button class="dav-btn dav-btn-p" onclick="markAllGroup(true)">
+    <button type="button" class="dav-btn dav-btn-p" onclick="markAllGroup(true)" {% if not today_is_class_day %}disabled title="Bugun bu guruh jadvalida dars kuni emas"{% endif %}>
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
       Hamma keldi deb belgilash
     </button>
-    <button class="dav-btn dav-btn-s" onclick="markAllGroup(false)">
+    <button type="button" class="dav-btn dav-btn-s" onclick="markAllGroup(false)" {% if not today_is_class_day %}disabled title="Bugun bu guruh jadvalida dars kuni emas"{% endif %}>
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-      Hamma sababsiz kelmadi
+      Hamma kelmadi
     </button>
   </div>
 </div>
@@ -155,11 +152,7 @@
       </span>
       <span style="display:flex;align-items:center;gap:5px;color:#ef4444;font-weight:600">
         <span style="width:8px;height:8px;border-radius:50%;background:#ef4444;display:inline-block"></span>
-        Sababsiz: <span id="today-absent">0</span>
-      </span>
-      <span style="display:flex;align-items:center;gap:5px;color:#d97706;font-weight:600">
-        <span style="width:8px;height:8px;border-radius:50%;background:#fbbf24;display:inline-block"></span>
-        Sababli: <span id="today-excused">0</span>
+        Kelmadi: <span id="today-absent">0</span>
       </span>
     </div>
   </div>
@@ -170,7 +163,6 @@
         <th>Ism Familiya</th>
         <th>Telefon</th>
         <th style="text-align:center">Keldi / kelmadi</th>
-        <th style="text-align:center">Sababli</th>
         <th>Izoh</th>
         <th style="text-align:center">Oy %</th>
       </tr>
@@ -189,19 +181,18 @@
           </div>
         </td>
         <td class="td-mono" style="font-size:12px">{{ row.student.phone }}</td>
-        {% if today_in_month %}
+        {% if today_in_month and today_is_class_day %}
           {% for day in row.days %}
             {% if day.date_str == today_str %}
         <td style="text-align:center;vertical-align:middle" data-dav-sync="{{ row.student.pk }}|{{ day.date_str }}">
           {% include 'attendance/_dav_presence.html' with day=day student_pk=row.student.pk %}
         </td>
-        <td style="text-align:center;vertical-align:middle" data-dav-sync="{{ row.student.pk }}|{{ day.date_str }}">
-          {% include 'attendance/_dav_excused.html' with day=day student_pk=row.student.pk %}
-        </td>
             {% endif %}
           {% endfor %}
+        {% elif today_in_month %}
+        <td style="text-align:center;font-size:12px;color:#9ca3af;vertical-align:middle">Bugun bu guruh uchun jadvalda dars kuni emas ({{ selected_group.days_label }}).</td>
         {% else %}
-        <td colspan="2" style="text-align:center;font-size:12px;color:#9ca3af;vertical-align:middle">Tanlangan oyda bugungi sana yo'q</td>
+        <td style="text-align:center;font-size:12px;color:#9ca3af;vertical-align:middle">Tanlangan oyda bugungi sana yo'q</td>
         {% endif %}
         <td>
           <input type="text" placeholder="Izoh..."
@@ -215,7 +206,7 @@
         </td>
       </tr>
       {% empty %}
-      <tr><td colspan="7" style="text-align:center;padding:40px;color:#9ca3af">Bu guruhda talabalar yo'q</td></tr>
+      <tr><td colspan="6" style="text-align:center;padding:40px;color:#9ca3af">Bu guruhda talabalar yo'q</td></tr>
       {% endfor %}
     </tbody>
   </table>
@@ -237,6 +228,7 @@
     <table class="month-attendance-table" style="min-width:600px">
       <thead>
         <tr>
+          <th style="text-align:center;min-width:36px">#</th>
           <th style="min-width:160px;position:sticky;left:0;background:#f9fafb;z-index:2">Talaba</th>
           {% for d in dates %}
           <th style="text-align:center;min-width:28px;padding:8px 2px;font-size:10px;{% if d == today %}color:#4338ca;font-weight:800;background:#eef2ff{% endif %}">
@@ -244,14 +236,14 @@
           </th>
           {% endfor %}
           <th style="text-align:center;min-width:50px">Keldi</th>
-          <th style="text-align:center;min-width:56px;font-size:10px" title="Keldi + sababli kelmadi">To'lov</th>
-          <th style="text-align:center;min-width:52px;font-size:10px;color:#b91c1c" title="Sababsiz kelmadi">Sababsiz</th>
+          <th style="text-align:center;min-width:52px;font-size:10px;color:#b91c1c" title="Kelmadi">Kelmadi</th>
           <th style="text-align:center;min-width:44px">%</th>
         </tr>
       </thead>
       <tbody>
         {% for row in matrix %}
         <tr>
+          <td style="text-align:center;color:#9ca3af;font-size:12px">{{ forloop.counter }}</td>
           <td style="font-weight:600;position:sticky;left:0;background:#fff;z-index:1;border-right:1px solid #f3f4f6">
             <div style="display:flex;align-items:center;gap:8px">
               <div class="avatar av-36" style="background:#e0e7ff;color:#3730a3;font-size:11px">{{ row.student.initials }}</div>
@@ -266,10 +258,7 @@
           <td style="text-align:center;font-size:12px;font-weight:600;color:#374151">
             {{ row.present_count }}/{{ dates|length }}
           </td>
-          <td style="text-align:center;font-size:11px;font-weight:600;color:#15803d" title="To'lov: keldi + sababli kelmadi">
-            {{ row.billable_count }}
-          </td>
-          <td style="text-align:center;font-size:11px;font-weight:600;color:#b91c1c" title="Sababsiz kelmadi — to'lov yo'q">
+          <td style="text-align:center;font-size:11px;font-weight:600;color:#b91c1c" title="Kelmagan kunlar">
             {{ row.no_pay_absent_count }}
           </td>
           <td style="text-align:center">
@@ -292,14 +281,14 @@
 {% block extra_js %}
 <script>
 window.DAV_TOGGLE_URL = "{% url 'attendance-toggle' %}";
-window.DAV_SET_EXCUSED_URL = "{% url 'attendance-set-excused' %}";
 const MARK_ALL_URL = "{% url 'attendance-mark-all' %}";
 const CSRF_TOKEN   = "{{ csrf_token }}";
 const GROUP_ID     = "{{ selected_group.pk|default:'' }}";
 const TODAY        = "{{ today|date:'Y-m-d' }}";
+const TODAY_IS_CLASS = {{ today_is_class_day|yesno:"true,false" }};
 
 function markAllGroup(isPresent) {
-  if (!GROUP_ID) return;
+  if (!GROUP_ID || !TODAY_IS_CLASS) return;
   const state = isPresent ? 'present' : 'absent';
   document.querySelectorAll('.today-attendance-table .dav-cell[data-role="presence"], .month-attendance-table .dav-cell[data-date="' + TODAY + '"]').forEach(function (btn) {
     const sid = btn.dataset.student;
@@ -334,51 +323,42 @@ function markAllGroup(isPresent) {
 
 function updateTodayStats() {
   const todayCells = document.querySelectorAll('.today-attendance-table .dav-cell[data-role="presence"][data-date="' + TODAY + '"]');
-  let present = 0, sababsiz = 0, sababli = 0;
+  let present = 0, absent = 0;
   todayCells.forEach(function (c) {
     const st = c.dataset.cellState || 'empty';
     if (st === 'present') present++;
-    else if (st === 'absent') sababsiz++;
-    else if (st === 'excused') sababli++;
+    else if (st === 'absent') absent++;
   });
-  const total = present + sababsiz + sababli;
+  const total = present + absent;
   const pEl = document.getElementById('today-present');
   const aEl = document.getElementById('today-absent');
-  const eEl = document.getElementById('today-excused');
   const fEl = document.getElementById('today-footer-pct');
   if (pEl) pEl.textContent = present;
-  if (aEl) aEl.textContent = sababsiz;
-  if (eEl) eEl.textContent = sababli;
+  if (aEl) aEl.textContent = absent;
   const pct = total > 0 ? Math.round(present / total * 100) : 0;
-  if (fEl) fEl.textContent = pct + '% jismonan keldi';
+  if (fEl) fEl.textContent = pct + '% keldi';
 }
 
 function updateMonthStats() {
   const mt = document.querySelector('.month-attendance-table');
   if (!mt) return;
   const monthCells = mt.querySelectorAll('.dav-cell[data-role="presence"]');
-  let present = 0, absent = 0, excused = 0;
+  let present = 0, absent = 0;
   monthCells.forEach(function (c) {
     const st = c.dataset.cellState || 'empty';
     if (st === 'present') present++;
     else if (st === 'absent') absent++;
-    else if (st === 'excused') excused++;
   });
   const total = monthCells.length;
-  const billable = present + excused;
   const pct = total > 0 ? Math.round(present / total * 100) : 0;
 
   const pEl  = document.getElementById('stat-present');
   const nEl  = document.getElementById('stat-nopay');
-  const eEl  = document.getElementById('stat-excused');
-  const bEl2 = document.getElementById('stat-billable');
   const pEl2 = document.getElementById('stat-pct');
   const bEl  = document.getElementById('stat-bar');
   const hEl  = document.getElementById('header-pct');
   if (pEl)  pEl.textContent  = present;
   if (nEl)  nEl.textContent  = absent;
-  if (eEl)  eEl.textContent  = excused;
-  if (bEl2) bEl2.textContent = billable;
   if (pEl2) pEl2.textContent = pct + '%';
   if (bEl)  bEl.style.width  = pct + '%';
   if (hEl)  hEl.textContent  = pct + '%';

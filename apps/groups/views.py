@@ -106,6 +106,7 @@ def group_detail(request, pk):
     import calendar
     days_count = calendar.monthrange(year, mon)[1]
     dates = [date(year, mon, d) for d in range(1, days_count + 1)]
+    dates = [d for d in dates if group.is_scheduled_calendar_day(d)]
 
     students = group.students.filter(is_active=True)
     att_qs = Attendance.objects.filter(student__in=students, date__year=year, date__month=mon)
@@ -116,8 +117,6 @@ def group_detail(request, pk):
             return 'empty'
         if att.is_present:
             return 'present'
-        if att.excused_absence:
-            return 'excused'
         return 'absent'
 
     matrix = []
@@ -133,7 +132,6 @@ def group_detail(request, pk):
             row.append({
                 'date': d,
                 'present': p,
-                'excused': bool(att and att.excused_absence),
                 'cell_kind': kind,
                 'date_str': str(d),
             })

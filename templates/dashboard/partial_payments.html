@@ -1,0 +1,57 @@
+{% extends 'base.html' %}
+{% block title %}Qisman to'lovlar — EduFlow{% endblock %}
+{% block nav_dash %}active{% endblock %}
+{% block bn_dash %}active{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <div class="page-title">{{ month_label }} — qisman to'laganlar</div>
+    <div class="page-sub">Qisman to'lov qilgan talabalar ro'yxati va to'lov tafsilotlari.</div>
+  </div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap">
+    <a href="{% url 'dashboard' %}" class="btn btn-outline">Dashboardga qaytish</a>
+  </div>
+</div>
+
+<div class="table-card">
+  <div style="padding:14px 18px;border-bottom:1px solid #e5e7eb;font-size:14px;font-weight:600">
+    Qisman to'lov qilgan talabalar ({{ partial_students|length }} ta)
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Talaba</th>
+          <th>Guruh</th>
+          <th>Oylik reja</th>
+          <th>To'lagan</th>
+          <th>Qolgan</th>
+          <th>Holat</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for s in partial_students %}
+        <tr>
+          <td style="color:#9ca3af;font-size:12px">{{ forloop.counter }}</td>
+          <td>
+            <div class="av-wrap">
+              <div class="avatar av-36" style="background:#ffedd5;color:#9a3412">{{ s.initials }}</div>
+              <div class="td-name">{{ s.full_name }}</div>
+            </div>
+          </td>
+          <td>{% if s.group %}<span class="course-chip">{{ s.group.name }}</span>{% else %}—{% endif %}</td>
+          <td style="font-weight:600">{{ s.month_fee_expected|floatformat:0 }} so'm</td>
+          <td style="font-weight:600;color:#2563eb">{{ s.month_fee_paid|floatformat:0 }} so'm</td>
+          <td style="font-weight:700;color:#ef4444">{{ s.month_fee_remaining|floatformat:0 }} so'm</td>
+          <td><span class="badge badge-yellow">Qisman to'langan</span></td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="7" style="text-align:center;padding:40px;color:#9ca3af">Qisman to'lagan talabalar yo'q.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

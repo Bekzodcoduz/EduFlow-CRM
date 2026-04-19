@@ -1,0 +1,127 @@
+{% extends 'base.html' %}
+{% block title %}{{ teacher.full_name }} — {{ month_label }} kutilayotgan{% endblock %}
+{% block nav_teachers %}active{% endblock %}
+{% block bn_teachers %}active{% endblock %}
+
+{% block content %}
+<div style="margin-bottom:16px">
+  <a href="{% url 'teacher-detail' teacher.pk %}" style="display:inline-flex;align-items:center;gap:5px;font-size:13px;color:#6b7280;text-decoration:none">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+    {{ teacher.full_name }} profili
+  </a>
+</div>
+
+<div class="page-head" style="margin-bottom:20px;flex-wrap:wrap;gap:12px">
+  <div>
+    <div class="page-title">Kutilayotgan oylik</div>
+    <div class="page-sub">{{ teacher.full_name }} · guruh narxi × faol talabalar</div>
+  </div>
+  <form method="get" style="display:flex;align-items:center;gap:8px">
+    <label for="exp-month" class="sc-label" style="margin:0">Oy</label>
+    <input id="exp-month" type="month" name="month" value="{{ month_input }}"
+      class="filter-btn" style="padding:8px 12px;cursor:pointer;border:1px solid #e5e7eb;border-radius:8px"
+      onchange="this.form.submit()">
+  </form>
+</div>
+
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;margin-bottom:22px">
+  <div class="stat-card" style="border-left:4px solid #4338ca">
+    <div class="sc-label">{{ month_label }} — kutilayotgan</div>
+    <div class="sc-value" style="color:#4338ca">{{ expected_total|floatformat:0 }}<small style="font-size:11px;color:#9ca3af"> so'm</small></div>
+    <div class="sc-trend trend-ne">Guruh narxi bo'yicha</div>
+  </div>
+  <div class="stat-card" style="border-left:4px solid #10b981">
+    <div class="sc-label">Shu oy kirim (talabalar)</div>
+    <div class="sc-value" style="color:#10b981">{{ paid_total|floatformat:0 }}<small style="font-size:11px;color:#9ca3af"> so'm</small></div>
+    <div class="sc-trend trend-up">To'lovlar jami</div>
+  </div>
+  <div class="stat-card" style="border-left:4px solid {% if remaining_total > 0 %}#ef4444{% else %}#10b981{% endif %}">
+    <div class="sc-label">Farq (qoldiq)</div>
+    <div class="sc-value" style="color:{% if remaining_total > 0 %}#ef4444{% else %}#10b981{% endif %}">{{ remaining_total|floatformat:0 }}<small style="font-size:11px;color:#9ca3af"> so'm</small></div>
+    <div class="sc-trend {% if remaining_total > 0 %}trend-dn{% else %}trend-up{% endif %}">
+      {% if remaining_total > 0 %}To'planishi kerak{% else %}Kutilganidan kam emas{% endif %}
+    </div>
+  </div>
+</div>
+
+<div class="table-card" style="margin-bottom:20px">
+  <div style="padding:16px 20px;border-bottom:1px solid #e5e7eb;font-size:15px;font-weight:600;color:#111827">
+    Guruhlar bo'yicha
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Guruh</th>
+          <th style="text-align:center">Talabalar</th>
+          <th style="text-align:right">Kutilayotgan</th>
+          <th style="text-align:right">Kirim (oy)</th>
+          <th style="text-align:right">Qoldiq</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in group_rows %}
+        <tr>
+          <td>
+            <a href="{% url 'group-detail' row.group.pk %}" style="font-weight:600;color:#4338ca;text-decoration:none">{{ row.group.name }}</a>
+            <div style="font-size:11px;color:#9ca3af">{{ row.group.course.name|default:"—" }}</div>
+          </td>
+          <td style="text-align:center;font-weight:600">{{ row.student_count }}</td>
+          <td style="text-align:right;font-weight:600">{{ row.expected|floatformat:0 }} so'm</td>
+          <td style="text-align:right;color:#15803d">{{ row.paid|floatformat:0 }} so'm</td>
+          <td style="text-align:right;font-weight:600;color:{% if row.remaining > 0 %}#b91c1c{% else %}#15803d{% endif %}">{{ row.remaining|floatformat:0 }} so'm</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="5" style="text-align:center;padding:32px;color:#9ca3af">Guruhlar yo'q</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="table-card">
+  <div style="padding:16px 20px;border-bottom:1px solid #e5e7eb;font-size:15px;font-weight:600;color:#111827">
+    Talabalar bo'yicha ({{ month_label }})
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Talaba</th>
+          <th>Guruh</th>
+          <th style="text-align:right">Kutilayotgan</th>
+          <th style="text-align:right">To'langan</th>
+          <th style="text-align:right">Qoldiq</th>
+          <th style="text-align:center">Holat</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for st in all_students %}
+        <tr>
+          <td style="color:#9ca3af;font-size:12px">{{ forloop.counter }}</td>
+          <td class="td-name">{{ st.full_name }}</td>
+          <td><span class="course-chip">{{ st.group.name|default:"—" }}</span></td>
+          <td style="text-align:right;font-weight:600">{{ st.month_fee_expected|floatformat:0 }}</td>
+          <td style="text-align:right;color:#15803d">{{ st.month_fee_paid|floatformat:0 }}</td>
+          <td style="text-align:right;font-weight:600;color:{% if st.month_fee_remaining > 0 %}#b91c1c{% else %}#15803d{% endif %}">{{ st.month_fee_remaining|floatformat:0 }}</td>
+          <td style="text-align:center">
+            {% if st.month_fee_status == 'full' %}
+            <span class="badge badge-green">To'liq</span>
+            {% elif st.month_fee_status == 'partial' %}
+            <span class="badge badge-yellow">Qisman</span>
+            {% elif st.month_fee_status == 'none' %}
+            <span class="badge badge-red">To'lanmagan</span>
+            {% else %}
+            <span class="badge badge-gray">—</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="7" style="text-align:center;padding:32px;color:#9ca3af">Talabalar yo'q</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

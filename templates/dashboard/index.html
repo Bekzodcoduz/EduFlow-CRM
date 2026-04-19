@@ -7,7 +7,7 @@
 <div class="page-head">
   <div>
     <div class="page-title">Akademiya sharhi</div>
-    <div class="page-sub">Xayrli tong, {{ user.first_name|default:user.username }}! Bugungi kungi holat.</div>
+    <div class="page-sub">Xayrli kun, {{ user.first_name|default:user.username }}! Bugungi kungi holat.</div>
   </div>
   {% if user.is_admin %}
   <div style="display:flex;gap:8px">
@@ -21,33 +21,45 @@
 
 <!-- STAT CARDS -->
 <div class="stat-grid">
-  <div class="stat-card">
+  <a href="{% url 'students' %}" class="stat-card" style="text-decoration:none;color:inherit">
     <div class="sc-icon" style="background:#eef2ff"><svg viewBox="0 0 24 24" fill="none" stroke="#4338ca" stroke-width="2"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg></div>
     <div class="sc-label">Jami talabalar</div>
     <div class="sc-value">{{ active_students }}</div>
     <div class="sc-trend trend-ne">Joriy holat</div>
-  </div>
-  <div class="stat-card">
+  </a>
+  <a href="{% url 'groups' %}?status=active" class="stat-card" style="text-decoration:none;color:inherit">
     <div class="sc-icon" style="background:#ecfdf5"><svg viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 3H8a2 2 0 0 0-2 2v2h12V5a2 2 0 0 0-2-2z"/></svg></div>
     <div class="sc-label">Faol guruhlar</div>
     <div class="sc-value">{{ active_groups }}</div>
     <div class="sc-trend trend-ne">Joriy holat</div>
-  </div>
+  </a>
   {% if user.is_admin %}
-  <div class="stat-card">
+  <a href="{% url 'finance' %}?tab=debtors" class="stat-card" style="text-decoration:none;color:inherit">
     <div class="sc-icon" style="background:#fef2f2"><svg viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div>
-    <div class="sc-label">{{ status_month_label }} to'lanmagan</div>
+    <div class="sc-label">{{ status_month_label }} oylik to'liq emas</div>
     <div class="sc-value">{{ debtors_count }}</div>
     <div class="sc-trend {% if debtors_count > 0 %}trend-dn{% else %}trend-up{% endif %}">
-      {% if debtors_count > 0 %}{{ debtors_count }} ta hali to'lamagan{% else %}Hamma to'lagan{% endif %}
+      {% if debtors_count > 0 %}{{ debtors_count }} ta (qisman yoki umuman){% else %}Oylik to'liq to'langan{% endif %}
     </div>
-  </div>
-  <div class="stat-card">
+  </a>
+  <a href="{% url 'dashboard-partial-payments' %}" class="stat-card" style="text-decoration:none;color:inherit">
+    <div class="sc-icon" style="background:#fff7ed"><svg viewBox="0 0 24 24" fill="none" stroke="#ea580c" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
+    <div class="sc-label">{{ status_month_label }} qisman to'laganlar</div>
+    <div class="sc-value">{{ partial_count }}</div>
+    <div class="sc-trend trend-ne">Batafsil ko'rish uchun bosing</div>
+  </a>
+  <a href="{% url 'finance' %}" class="stat-card" style="text-decoration:none;color:inherit">
     <div class="sc-icon" style="background:#ecfdf5"><svg viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
     <div class="sc-label">Jami tushum</div>
     <div class="sc-value" style="font-size:18px">{{ total_income|floatformat:0 }} so'm</div>
     <div class="sc-trend trend-ne">Joriy holat</div>
-  </div>
+  </a>
+  <a href="{% url 'finance' %}" class="stat-card" style="text-decoration:none;color:inherit">
+    <div class="sc-icon" style="background:#ecfeff"><svg viewBox="0 0 24 24" fill="none" stroke="#0891b2" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
+    <div class="sc-label">Rejalashtirilgan oylik tushum</div>
+    <div class="sc-value" style="font-size:18px">{{ planned_monthly_income|floatformat:0 }} so'm</div>
+    <div class="sc-trend trend-ne">Faol talabalar: {{ planned_students_count }} ta</div>
+  </a>
   {% endif %}
 </div>
 

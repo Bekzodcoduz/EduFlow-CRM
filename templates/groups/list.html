@@ -68,6 +68,18 @@
     </div>
     <div class="gc-foot">
       <a href="{% url 'group-detail' g.pk %}" class="gc-link">Batafsil ko'rish →</a>
+      <div style="display:flex;align-items:center;gap:8px">
+        {% if user.is_admin %}
+        <a href="{% url 'group-edit' g.pk %}" class="btn-icon-pencil" title="Guruhni tahrirlash">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 3a2.828 2.828 0 1 1 4 4L7 21l-4 1 1-4L17 3z"/></svg>
+          <span class="sr-only">Tahrirlash</span>
+        </a>
+        {% else %}
+        <a href="{% url 'group-detail' g.pk %}" class="btn-icon-pencil" title="Guruhni ko'rish / tahrirlash">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 3a2.828 2.828 0 1 1 4 4L7 21l-4 1 1-4L17 3z"/></svg>
+          <span class="sr-only">Batafsil</span>
+        </a>
+        {% endif %}
       <div class="gc-faces">
         {% for s in g.students.all|slice:":4" %}
         <div class="gc-face">{{ s.initials }}</div>
@@ -75,6 +87,7 @@
         {% if g.student_count > 4 %}
         <div class="gc-face">+{{ g.student_count|add:"-4" }}</div>
         {% endif %}
+      </div>
       </div>
     </div>
   </div>

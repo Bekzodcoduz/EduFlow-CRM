@@ -16,8 +16,11 @@
     <div class="page-sub">{{ group.course.name|default:"" }}</div>
   </div>
   {% if user.is_admin %}
-  <div style="display:flex;gap:8px;flex-wrap:wrap">
-    <a href="{% url 'group-edit' group.pk %}" class="btn btn-outline btn-sm">Tahrirlash</a>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+    <a href="{% url 'group-edit' group.pk %}" class="btn-icon-pencil" style="width:40px;height:40px;border:1px solid var(--bd, #e5e7eb)" title="Guruhni tahrirlash">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 3a2.828 2.828 0 1 1 4 4L7 21l-4 1 1-4L17 3z"/></svg>
+      <span class="sr-only">Tahrirlash</span>
+    </a>
     <form method="post" action="{% url 'group-toggle' group.pk %}" style="display:inline">
       {% csrf_token %}
       <button type="submit" class="btn btn-outline btn-sm">
@@ -83,7 +86,7 @@
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px">
       <div>
         <div style="font-size:14px;font-weight:600">Davomat</div>
-        <div style="font-size:11px;color:#6b7280;margin-top:4px">Keldi/yo‘q tugmasi; sababli — faqat kelmaganida belgilanadi</div>
+        <div style="font-size:11px;color:#6b7280;margin-top:4px">Keldi / kelmadi — tugma bilan belgilanadi</div>
       </div>
       <form method="get">
         <input type="month" name="month" value="{{ month_str }}" class="btn btn-outline btn-sm" onchange="this.form.submit()" style="cursor:pointer">
@@ -95,6 +98,7 @@
       <table style="min-width:500px">
         <thead>
           <tr>
+            <th style="text-align:center;min-width:36px">#</th>
             <th style="min-width:140px;position:sticky;left:0;background:#f9fafb;z-index:1">Talaba</th>
             {% for d in dates %}
             <th style="text-align:center;min-width:26px;padding:8px 2px;font-size:10px">{{ d.day }}</th>
@@ -105,6 +109,7 @@
         <tbody>
           {% for row in matrix %}
           <tr>
+            <td style="text-align:center;color:#9ca3af;font-size:12px">{{ forloop.counter }}</td>
             <td style="font-weight:600;position:sticky;left:0;background:#fff;z-index:1">{{ row.student.full_name }}</td>
             {% for day in row.days %}
             <td style="text-align:center;padding:3px;vertical-align:middle">
@@ -131,6 +136,5 @@
 {% block extra_js %}
 <script>
 window.DAV_TOGGLE_URL = "{% url 'attendance-toggle' %}";
-window.DAV_SET_EXCUSED_URL = "{% url 'attendance-set-excused' %}";
 </script>
 {% endblock %}

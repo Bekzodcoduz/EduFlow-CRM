@@ -89,6 +89,6 @@ docker compose down
 ## Xususiyatlar
 - Login sahifasi: chap ko'k panel + o'ng forma (rol kartochkasiz)
 - Talaba qo'shishda: Viloyat → Tuman → Mahalla → Ko'cha → Uy → Kvartira → Qavat → Pochta indeksi
-- Davomat: **sababli / sababsiz** — ketma-ket **Keldi → sababsiz kelmadi (to‘lov yo‘q) → sababli kelmadi (to‘lov bor) → Keldi**. «Hamma sababsiz kelmadi» — barchasi sababsiz deb belgilanadi.
+- Davomat: **Keldi / kelmadi** — tugma bilan almashtiriladi; «Hamma kelmadi» / «Hamma keldi» guruh bo‘yicha bir kunga qo‘llanadi.
 - Moliya: balans avtomatik o'zgaradi
 - Hisobot eksporti: **guruh** (ixtiyoriy) + **talaba** (ixtiyoriy): barcha tizim, faqat guruh, yoki bitta o‘quvchi. **Excel/CSV**, **Yo'qlama** varag‘i filtrga mos.

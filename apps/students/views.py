@@ -11,6 +11,14 @@ from django.db.models import Sum
 import calendar
 from datetime import date
 from django.utils import timezone
+from django.utils.dateparse import parse_date
+
+from apps.students.month_fee import (
+    apply_month_fee_status,
+    attach_month_fee_for_students,
+    current_calendar_month_bounds,
+    month_income_totals_by_student,
+)
 
 
 REGIONS = [
@@ -45,28 +53,6 @@ def _normalize_subject_label(value):
     return ' '.join((value or '').strip().lower().split())
 
 
-def _current_month_bounds():
-    today = timezone.localdate()
-    return today.replace(day=1), today.replace(day=calendar.monthrange(today.year, today.month)[1]), today
-
-
-def _paid_student_ids_in_month(student_ids):
-    if not student_ids:
-        return set()
-    m_start, m_end, _ = _current_month_bounds()
-    rows = (
-        Payment.objects.filter(
-            payment_type=Payment.INCOME,
-            student_id__in=student_ids,
-            created_at__date__gte=m_start,
-            created_at__date__lte=m_end,
-        )
-        .values('student_id')
-        .annotate(total=Sum('amount'))
-    )
-    return {r['student_id'] for r in rows if int(r['total'] or 0) > 0}
-
-
 @login_required
 def student_list(request):
     q      = request.GET.get('q', '')
@@ -89,17 +75,33 @@ def student_list(request):
         )
     if gid:
         qs = qs.filter(group_id=gid)
-    ids = list(qs.values_list('pk', flat=True))
-    paid_ids = _paid_student_ids_in_month(ids)
-    if status == 'debtor':
-        qs = qs.filter(pk__in=[sid for sid in ids if sid not in paid_ids])
-    elif status == 'paid':
-        qs = qs.filter(pk__in=list(paid_ids))
 
-    students_out = list(qs.order_by('last_name', 'first_name'))
-    paid_ids_visible = _paid_student_ids_in_month([s.pk for s in students_out])
-    for s in students_out:
-        s.paid_this_month = s.pk in paid_ids_visible
+    pre_status_qs = qs
+    ids = list(pre_status_qs.values_list('pk', flat=True))
+    m_start, m_end, today_m = current_calendar_month_bounds()
+    paid_map = month_income_totals_by_student(ids, m_start, m_end)
+
+    if status == 'debtor':
+        underpaid_ids = []
+        for st in pre_status_qs.select_related('group').only('pk', 'group_id', 'group__price'):
+            e = int(st.group.price) if st.group_id else 0
+            p = paid_map.get(st.pk, 0)
+            if e > 0 and p < e:
+                underpaid_ids.append(st.pk)
+        qs = pre_status_qs.filter(pk__in=underpaid_ids)
+    elif status == 'paid':
+        full_ids = []
+        for st in pre_status_qs.select_related('group').only('pk', 'group_id', 'group__price'):
+            e = int(st.group.price) if st.group_id else 0
+            p = paid_map.get(st.pk, 0)
+            if (e > 0 and p >= e) or (e == 0 and p > 0):
+                full_ids.append(st.pk)
+        qs = pre_status_qs.filter(pk__in=full_ids)
+    else:
+        qs = pre_status_qs
+
+    students_out = list(qs.order_by('last_name', 'first_name').select_related('group__teacher', 'group__course'))
+    attach_month_fee_for_students(students_out, paid_map, m_start, m_end)
 
     groups_all_qs = _groups_for_user(request.user).select_related('course', 'teacher')
     groups_qs = groups_all_qs.filter(is_active=True)
@@ -148,7 +150,7 @@ def student_list(request):
         'group_options': group_options,
         'course_filters': course_filters,
         'regions':  REGIONS,
-        'status_month_label': f"{_current_month_bounds()[2].month:02d}.{_current_month_bounds()[2].year}",
+        'status_month_label': f"{today_m.month:02d}.{today_m.year}",
         'q': q, 'gid': gid, 'status': status,
     }
     return render(request, 'students/list.html', ctx)
@@ -179,8 +181,8 @@ def student_create(request):
         last_name    = ln,
         phone        = request.POST.get('phone', '').strip(),
         parent_phone = request.POST.get('parent_phone', '').strip(),
-        birth_date   = request.POST.get('birth_date') or None,
-        gender       = request.POST.get('gender', ''),
+        birth_date   = None,
+        gender       = '',
         email        = '',
         region       = '',
         district     = '',
@@ -193,6 +195,49 @@ def student_create(request):
     )
     messages.success(request, f"✓ {fn} {ln} ro'yxatga olindi!")
     return redirect('students')
+
+
+@login_required
+def student_edit(request, pk):
+    """Talaba barcha asosiy maydonlarini tahrirlash."""
+    student = get_object_or_404(
+        _students_for_user(request.user).select_related('group__teacher', 'group__course'),
+        pk=pk,
+    )
+
+    if request.method == 'POST':
+        fn = request.POST.get('first_name', '').strip()
+        ln = request.POST.get('last_name', '').strip()
+        phone = request.POST.get('phone', '').strip()
+        if not fn or not ln or not phone:
+            messages.error(request, "Ism, familiya va telefon majburiy.")
+            return redirect('student-edit', pk=pk)
+
+        group_id = request.POST.get('group') or None
+        if group_id and not _groups_for_user(request.user).filter(pk=group_id).exists():
+            messages.error(request, "Bu guruhni tanlashga ruxsat yo'q.")
+            return redirect('student-edit', pk=pk)
+
+        student.first_name = fn
+        student.last_name = ln
+        student.phone = phone
+        student.parent_phone = (request.POST.get('parent_phone') or '').strip()
+        student.group_id = group_id
+        student.note = (request.POST.get('note') or '').strip()
+        student.enrolled_at = parse_date(request.POST.get('enrolled_at') or '') or None
+        student.is_active = request.POST.get('is_active') in ('on', '1', 'true', 'yes')
+        student.save()
+        messages.success(request, "Talaba ma'lumotlari saqlandi.")
+        return redirect('student-detail', pk=pk)
+
+    ctx = {
+        'student': student,
+        'groups': _groups_for_user(request.user)
+        .filter(is_active=True)
+        .select_related('course', 'teacher')
+        .order_by('name'),
+    }
+    return render(request, 'students/edit.html', ctx)
 
 
 @login_required
@@ -281,8 +326,21 @@ def student_detail(request, pk):
     # Bu oy davomati
     this_month_att  = att_all.filter(date__year=today.year, date__month=today.month)
     month_days      = calendar.monthrange(today.year, today.month)[1]
+    if student.group_id:
+        g = student.group
+        month_scheduled = sum(
+            1
+            for day in range(1, month_days + 1)
+            if g.is_scheduled_calendar_day(date(today.year, today.month, day))
+        )
+    else:
+        month_scheduled = month_days
     month_present   = this_month_att.filter(is_present=True).count()
-    month_pct       = round(month_present / month_days * 100) if month_days else 0
+    month_pct       = round(month_present / month_scheduled * 100) if month_scheduled else 0
+
+    m_start, m_end, _ = current_calendar_month_bounds()
+    paid_map_one = month_income_totals_by_student([student.pk], m_start, m_end)
+    apply_month_fee_status(student, paid_map_one)
 
     # Oxirgi 5 to'lov
     recent_payments = payments[:5]
@@ -302,6 +360,10 @@ def student_detail(request, pk):
         'month_present':   month_present,
         'month_days':      month_days,
         'month_pct':       month_pct,
+        'month_fee_expected': student.month_fee_expected,
+        'month_fee_paid': student.month_fee_paid,
+        'month_fee_remaining': student.month_fee_remaining,
+        'month_fee_status': student.month_fee_status,
         'payment_courses': _payment_course_options(request.user, student),
         'payment_groups':  _payment_group_options(request.user, student),
     }
