@@ -83,7 +83,7 @@ def student_list(request):
 
     if status == 'debtor':
         underpaid_ids = []
-        for st in pre_status_qs.select_related('group').only('pk', 'group_id', 'group__price'):
+        for st in pre_status_qs.select_related('group'):
             e = int(st.group.price) if st.group_id else 0
             p = paid_map.get(st.pk, 0)
             if e > 0 and p < e:
@@ -91,7 +91,7 @@ def student_list(request):
         qs = pre_status_qs.filter(pk__in=underpaid_ids)
     elif status == 'paid':
         full_ids = []
-        for st in pre_status_qs.select_related('group').only('pk', 'group_id', 'group__price'):
+        for st in pre_status_qs.select_related('group'):
             e = int(st.group.price) if st.group_id else 0
             p = paid_map.get(st.pk, 0)
             if (e > 0 and p >= e) or (e == 0 and p > 0):
